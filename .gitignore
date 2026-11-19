@@ -1,0 +1,4 @@
+node_modules/
+dist/*
+!dist/WW3.html
+__pycache__/

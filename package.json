@@ -1,0 +1,14 @@
+{
+  "name": "ww3",
+  "version": "1.0.0",
+  "description": "WW3 — three.js 단일 HTML 현대전 FPS",
+  "scripts": {
+    "build": "python3 build.py"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.160.0"
+  }
+}
