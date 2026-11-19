@@ -17,10 +17,10 @@ function m10Shelter() {
     if (o.col !== false) me.userData.col = addCollider(x0, y0, z0, x1, y1, z1, {}); return me; };
   const X = (a) => ex + a, Z = (b) => ez + b; // local offsets: +x east, -z north (into the ground)
   // ---- the street kiosk: granite walls on three sides, a glass canopy, the blast door across the open (south) side ----
-  B(X(-2.6), X(-2.2), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(2.2), X(2.6), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(-2.6), X(2.6), 0, 3.3, Z(-5.6), Z(-5.2), gran);
+  B(X(-2.6), X(-2.2), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(2.2), X(2.6), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(-2.6), X(2.6), -0.8, 3.3, Z(-5.6), Z(-5.2), gran);
   B(X(-2.8), X(2.8), 3.3, 3.45, Z(-5.8), Z(4.8), steel, { col: false }); B(X(-2.6), X(2.6), 3.45, 3.5, Z(-5.6), Z(4.6), glass, { col: false, cast: false });
   D.door1 = B(X(-2.2), X(2.2), TOP, 3.2, Z(4.0), Z(4.25), steel); D.door1Pos = v3(X(0), 1.2, Z(5.4));
-  for (let i = 0; i < 5; i++) B(X(-2.1), X(2.1), 0.4 + i * 0.6, 0.45 + i * 0.6, Z(4.25), Z(4.3), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 }), { col: false, cast: false }); // the door's ribs
+  for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.05, 0.05), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 })); r.position.set(0, -1.25 + i * 0.6, 0.15); D.door1.add(r); } // the door's ribs, fixed to it
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.7), new THREE.MeshStandardMaterial({ map: canvasTex(256, 70, (c, w, h) => { c.fillStyle = '#8a3fa8'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.fillText('5  광화문역', w / 2, 48); }), emissive: 0xffffff, emissiveIntensity: 0.25 })); s.position.set(X(0), 3.85, Z(4.81)); G.world.add(s); }
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), new THREE.MeshStandardMaterial({ map: canvasTex(160, 100, (c, w, h) => { c.fillStyle = '#e8d020'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('민방위 대피소', w / 2, 40); c.font = '16px sans-serif'; c.fillText('CIVIL DEFENSE SHELTER', w / 2, 70); }) })); s.position.set(X(2.62), 2.2, Z(2)); s.rotation.y = Math.PI / 2; G.world.add(s); }
   // ---- flight 1: under the kiosk, from the plaza down to a landing 4.5 m down; flight 2 on north to the concourse ----
@@ -31,7 +31,7 @@ function m10Shelter() {
   // the stairwell's walls and ceiling, down into the ground (the plaza is above the ceiling from flight 2 on)
   for (const s of [-1, 1]) B(X(s * 2.2) - 0.2, X(s * 2.2) + 0.2, D.FL - 0.5, 0, zC, Z(4.2), wallM, { cast: false });
   B(X(-2.4), X(2.4), D.FL - 0.5, 0, Z(4.2), Z(4.6), wallM, { cast: false }); // under the door sill
-  B(X(-2.4), X(2.4), -0.6, -0.2, zC, Z(-5.2), ceilM, { col: false, cast: false });
+  B(X(-2.4), X(2.4), -0.6, 0.25, zC, Z(-5.2), ceilM, { col: false, cast: false });
   for (let z = Z(-6); z > zC; z -= 4) B(X(-0.3), X(0.3), -0.64, -0.6, z - 1.2, z, lampDim, { col: false, cast: false });
   // ---- the passage north to the shelter, 6 m wide, 4.4 m high; the memorial room opens off its east side ----
   const c0 = zC, c1 = zC - 14; D.c0 = c0; D.c1 = c1;
@@ -55,7 +55,7 @@ function m10Shelter() {
   const h0 = c1, h1 = c1 - 22; D.h0 = h0; D.h1 = h1;
   D.door2 = B(X(-3), X(3), D.FL, D.FL + 3.4, h0 - 0.1, h0 + 0.25, steel); D.door2Pos = v3(X(0), D.FL + 1.2, h0 + 1.6);
   B(X(-3), X(3), D.FL + 3.4, D.CL, h0 - 0.1, h0 + 0.25, wallM);
-  for (let i = 0; i < 6; i++) B(X(-2.9), X(2.9), D.FL + 0.4 + i * 0.5, D.FL + 0.45 + i * 0.5, h0 + 0.25, h0 + 0.3, mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 }), { col: false, cast: false });
+  for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.05, 0.05), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 })); r.position.set(0, -1.28 + i * 0.5, 0.2); D.door2.add(r); }
   B(X(-12), X(12), D.FL - 0.5, D.FL, h1, h0, floorM, { cast: false }); B(X(-12.4), X(12.4), D.CL, D.CL + 0.4, h1 - 0.4, h0 + 0.3, ceilM, { col: false, cast: false });
   B(X(-12.4), X(-12), D.FL, D.CL, h1, h0, wallM); B(X(12), X(12.4), D.FL, D.CL, h1, h0, wallM); B(X(-12.4), X(12.4), D.FL, D.CL, h1 - 0.4, h1, wallM);
   B(X(-12.4), X(-3), D.FL, D.CL, h0 - 0.1, h0 + 0.3, wallM); B(X(3), X(12.4), D.FL, D.CL, h0 - 0.1, h0 + 0.3, wallM);
@@ -84,9 +84,10 @@ function m10Shelter() {
 /* the people's postures; t advances their breathing and crying */
 function m7ShPose(o, dt) {
   const m = o.m; o.ph += dt; const ph = o.ph;
-  if (o.cheer) { // up on their feet, arms in the air, bouncing
-    const k = Math.min(1, o.cheer += dt * 2.2); poseSoldier(m, { moving: false, speed: 0, crouch: 1 - k, aim: 0, walk: 0, pitch: 0.3 }, 1); m.root.rotation.x = 0; m.root.position.y = o.p.y + Math.abs(Math.sin(ph * 7)) * 0.18 * k;
-    if (m.armR) { m.armR.rotation.set(-2.9 + Math.sin(ph * 9) * 0.3, 0, -0.2); } if (m.armL) { m.armL.rotation.set(-2.9 + Math.cos(ph * 8) * 0.3, 0, 0.2); } return; }
+  if (o.cheer) { // getting up: from lying, sitting or curled, onto their feet, turning toward the door
+    if (o.rx0 === undefined) { o.rx0 = m.root.rotation.x; o.y0 = m.root.position.y; o.yaw0 = m.root.rotation.y; }
+    const k = Math.min(1, o.cheer += dt * (o.kind === 'lie' ? 1.1 : 1.8)), e = k * k * (3 - 2 * k); poseSoldier(m, { moving: false, speed: 0, crouch: 1 - e, aim: 0, walk: 0, pitch: 0 }, 1);
+    m.root.rotation.x = o.rx0 * (1 - e); m.root.position.y = o.y0 + (o.p.y - o.y0) * e; m.root.rotation.y = o.yaw0 + angDiff(o.yaw0, o.face ?? o.yaw0) * e; return; }
   if (o.kind === 'lie') { poseSoldier(m, { moving: false, speed: 0, crouch: 0, aim: 0, walk: 0, pitch: 0 }, 1); m.root.rotation.x = -Math.PI / 2; m.root.position.y = o.p.y + 0.22 + Math.sin(ph * 1.4) * 0.008; }
   else if (o.kind === 'sit') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: -0.2 }, 1); m.root.rotation.x = 0.12; m.root.position.y = o.p.y - 0.35; }
   else if (o.kind === 'curl') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: 0.7 }, 1); m.root.rotation.x = 0.35; m.root.position.y = o.p.y - 0.42; if (m.armR) m.armR.rotation.set(-0.9, 0, 0.5); if (m.armL) m.armL.rotation.set(-0.9, 0, -0.5); }
@@ -97,7 +98,7 @@ function m7ShPose(o, dt) {
 }
 /* the plaza paving and the ground under the kiosk are cut away in their shaders so the stairwell shows from above */
 function m10CutPlaza(hole) {
-  const rc = new THREE.Raycaster(), mats = new Set(); rc.camera = camera; // sprites in the scene need it
+  const rc = new THREE.Raycaster(), mats = new Set(); rc.camera = camera; G.staticRoot.updateMatrixWorld(true); G.world.updateMatrixWorld(true); // sprites need the camera; nothing has been rendered yet, so bring the world matrices up to date
   for (const [u, v] of [[0.5, 0.5], [0.2, 0.2], [0.8, 0.8], [0.2, 0.8], [0.8, 0.2]]) { const x = hole.x0 + (hole.x1 - hole.x0) * u, z = hole.z0 + (hole.z1 - hole.z0) * v; rc.set(v3(x, 40, z), v3(0, -1, 0));
     for (const h of rc.intersectObjects([G.staticRoot, G.world], true)) { if (h.point.y > 1 || h.point.y < -1.5 || !h.object.isMesh) continue; (Array.isArray(h.object.material) ? h.object.material : [h.object.material]).forEach((m) => mats.add(m)); } }
   for (const m of mats) { if (m.userData.holeCut) continue; m.userData.holeCut = true; const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey ? m.customProgramCacheKey.bind(m) : () => '';

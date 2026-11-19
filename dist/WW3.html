@@ -7205,9 +7205,9 @@ function updatePlayer(dt) {
   const sh = Math.min(G.shake, 1.5); G.shake = Math.max(0, G.shake - dt * 1.8);
   camera.position.set(P.pos.x + _r.x * bx + rand(-1, 1) * sh * 0.06, P.pos.y + eyeH + by + rand(-1, 1) * sh * 0.06, P.pos.z + _r.z * bx);
   // the gun camera (H): look from just ahead of the K-M19's muzzle instead of from the seat
-  { const on = !!(G.gunCam && G.gunCamPod && P.ride && ['km19', 'm134'].includes(curId()) && !G.cut); if (!on && G.gunCam && (!P.ride || curId() !== 'km19')) G.gunCam = false;
+  { const on = !!(G.gunCam && G.gunCamPod && P.ride && ['km19', 'm134'].includes(curId()) && !G.cut); if (!on && G.gunCam && (!P.ride || !['km19', 'm134'].includes(curId()))) G.gunCam = false;
     if (on) { G.gunCamPod.updateMatrixWorld(); G.gunCamPod.localToWorld(camera.position.set(0, -0.32, -1.7)); camera.position.x += rand(-1, 1) * sh * 0.03; camera.position.y += rand(-1, 1) * sh * 0.03; }
-    if (G.gunCamCockpit) G.gunCamCockpit.visible = !on; document.body.classList.toggle('guncam', on); }
+    if (G.gunCamCockpit && P.ride) G.gunCamCockpit.visible = !on; /* only while seated: off the aircraft the cockpit stays hidden inside the shell */ document.body.classList.toggle('guncam', on); }
   P.punchP = damp(P.punchP, 0, 12, dt); P.punchY = damp(P.punchY, 0, 12, dt);
   const roll = (-fx * 0.012 * (P.sprinting ? 1.8 : 1)) + Math.sin(P.bob) * 0.006 * bobA * (P.sprinting ? 2 : 1);
   P.roll = damp(P.roll || 0, roll, 6, dt);
@@ -11838,10 +11838,10 @@ function m10Shelter() {
     if (o.col !== false) me.userData.col = addCollider(x0, y0, z0, x1, y1, z1, {}); return me; };
   const X = (a) => ex + a, Z = (b) => ez + b; // local offsets: +x east, -z north (into the ground)
   // ---- the street kiosk: granite walls on three sides, a glass canopy, the blast door across the open (south) side ----
-  B(X(-2.6), X(-2.2), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(2.2), X(2.6), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(-2.6), X(2.6), 0, 3.3, Z(-5.6), Z(-5.2), gran);
+  B(X(-2.6), X(-2.2), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(2.2), X(2.6), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(-2.6), X(2.6), -0.8, 3.3, Z(-5.6), Z(-5.2), gran);
   B(X(-2.8), X(2.8), 3.3, 3.45, Z(-5.8), Z(4.8), steel, { col: false }); B(X(-2.6), X(2.6), 3.45, 3.5, Z(-5.6), Z(4.6), glass, { col: false, cast: false });
   D.door1 = B(X(-2.2), X(2.2), TOP, 3.2, Z(4.0), Z(4.25), steel); D.door1Pos = v3(X(0), 1.2, Z(5.4));
-  for (let i = 0; i < 5; i++) B(X(-2.1), X(2.1), 0.4 + i * 0.6, 0.45 + i * 0.6, Z(4.25), Z(4.3), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 }), { col: false, cast: false }); // the door's ribs
+  for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.05, 0.05), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 })); r.position.set(0, -1.25 + i * 0.6, 0.15); D.door1.add(r); } // the door's ribs, fixed to it
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.7), new THREE.MeshStandardMaterial({ map: canvasTex(256, 70, (c, w, h) => { c.fillStyle = '#8a3fa8'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.fillText('5  광화문역', w / 2, 48); }), emissive: 0xffffff, emissiveIntensity: 0.25 })); s.position.set(X(0), 3.85, Z(4.81)); G.world.add(s); }
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), new THREE.MeshStandardMaterial({ map: canvasTex(160, 100, (c, w, h) => { c.fillStyle = '#e8d020'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('민방위 대피소', w / 2, 40); c.font = '16px sans-serif'; c.fillText('CIVIL DEFENSE SHELTER', w / 2, 70); }) })); s.position.set(X(2.62), 2.2, Z(2)); s.rotation.y = Math.PI / 2; G.world.add(s); }
   // ---- flight 1: under the kiosk, from the plaza down to a landing 4.5 m down; flight 2 on north to the concourse ----
@@ -11852,7 +11852,7 @@ function m10Shelter() {
   // the stairwell's walls and ceiling, down into the ground (the plaza is above the ceiling from flight 2 on)
   for (const s of [-1, 1]) B(X(s * 2.2) - 0.2, X(s * 2.2) + 0.2, D.FL - 0.5, 0, zC, Z(4.2), wallM, { cast: false });
   B(X(-2.4), X(2.4), D.FL - 0.5, 0, Z(4.2), Z(4.6), wallM, { cast: false }); // under the door sill
-  B(X(-2.4), X(2.4), -0.6, -0.2, zC, Z(-5.2), ceilM, { col: false, cast: false });
+  B(X(-2.4), X(2.4), -0.6, 0.25, zC, Z(-5.2), ceilM, { col: false, cast: false });
   for (let z = Z(-6); z > zC; z -= 4) B(X(-0.3), X(0.3), -0.64, -0.6, z - 1.2, z, lampDim, { col: false, cast: false });
   // ---- the passage north to the shelter, 6 m wide, 4.4 m high; the memorial room opens off its east side ----
   const c0 = zC, c1 = zC - 14; D.c0 = c0; D.c1 = c1;
@@ -11876,7 +11876,7 @@ function m10Shelter() {
   const h0 = c1, h1 = c1 - 22; D.h0 = h0; D.h1 = h1;
   D.door2 = B(X(-3), X(3), D.FL, D.FL + 3.4, h0 - 0.1, h0 + 0.25, steel); D.door2Pos = v3(X(0), D.FL + 1.2, h0 + 1.6);
   B(X(-3), X(3), D.FL + 3.4, D.CL, h0 - 0.1, h0 + 0.25, wallM);
-  for (let i = 0; i < 6; i++) B(X(-2.9), X(2.9), D.FL + 0.4 + i * 0.5, D.FL + 0.45 + i * 0.5, h0 + 0.25, h0 + 0.3, mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 }), { col: false, cast: false });
+  for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.05, 0.05), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 })); r.position.set(0, -1.28 + i * 0.5, 0.2); D.door2.add(r); }
   B(X(-12), X(12), D.FL - 0.5, D.FL, h1, h0, floorM, { cast: false }); B(X(-12.4), X(12.4), D.CL, D.CL + 0.4, h1 - 0.4, h0 + 0.3, ceilM, { col: false, cast: false });
   B(X(-12.4), X(-12), D.FL, D.CL, h1, h0, wallM); B(X(12), X(12.4), D.FL, D.CL, h1, h0, wallM); B(X(-12.4), X(12.4), D.FL, D.CL, h1 - 0.4, h1, wallM);
   B(X(-12.4), X(-3), D.FL, D.CL, h0 - 0.1, h0 + 0.3, wallM); B(X(3), X(12.4), D.FL, D.CL, h0 - 0.1, h0 + 0.3, wallM);
@@ -11905,9 +11905,10 @@ function m10Shelter() {
 /* the people's postures; t advances their breathing and crying */
 function m7ShPose(o, dt) {
   const m = o.m; o.ph += dt; const ph = o.ph;
-  if (o.cheer) { // up on their feet, arms in the air, bouncing
-    const k = Math.min(1, o.cheer += dt * 2.2); poseSoldier(m, { moving: false, speed: 0, crouch: 1 - k, aim: 0, walk: 0, pitch: 0.3 }, 1); m.root.rotation.x = 0; m.root.position.y = o.p.y + Math.abs(Math.sin(ph * 7)) * 0.18 * k;
-    if (m.armR) { m.armR.rotation.set(-2.9 + Math.sin(ph * 9) * 0.3, 0, -0.2); } if (m.armL) { m.armL.rotation.set(-2.9 + Math.cos(ph * 8) * 0.3, 0, 0.2); } return; }
+  if (o.cheer) { // getting up: from lying, sitting or curled, onto their feet, turning toward the door
+    if (o.rx0 === undefined) { o.rx0 = m.root.rotation.x; o.y0 = m.root.position.y; o.yaw0 = m.root.rotation.y; }
+    const k = Math.min(1, o.cheer += dt * (o.kind === 'lie' ? 1.1 : 1.8)), e = k * k * (3 - 2 * k); poseSoldier(m, { moving: false, speed: 0, crouch: 1 - e, aim: 0, walk: 0, pitch: 0 }, 1);
+    m.root.rotation.x = o.rx0 * (1 - e); m.root.position.y = o.y0 + (o.p.y - o.y0) * e; m.root.rotation.y = o.yaw0 + angDiff(o.yaw0, o.face ?? o.yaw0) * e; return; }
   if (o.kind === 'lie') { poseSoldier(m, { moving: false, speed: 0, crouch: 0, aim: 0, walk: 0, pitch: 0 }, 1); m.root.rotation.x = -Math.PI / 2; m.root.position.y = o.p.y + 0.22 + Math.sin(ph * 1.4) * 0.008; }
   else if (o.kind === 'sit') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: -0.2 }, 1); m.root.rotation.x = 0.12; m.root.position.y = o.p.y - 0.35; }
   else if (o.kind === 'curl') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: 0.7 }, 1); m.root.rotation.x = 0.35; m.root.position.y = o.p.y - 0.42; if (m.armR) m.armR.rotation.set(-0.9, 0, 0.5); if (m.armL) m.armL.rotation.set(-0.9, 0, -0.5); }
@@ -11918,7 +11919,7 @@ function m7ShPose(o, dt) {
 }
 /* the plaza paving and the ground under the kiosk are cut away in their shaders so the stairwell shows from above */
 function m10CutPlaza(hole) {
-  const rc = new THREE.Raycaster(), mats = new Set(); rc.camera = camera; // sprites in the scene need it
+  const rc = new THREE.Raycaster(), mats = new Set(); rc.camera = camera; G.staticRoot.updateMatrixWorld(true); G.world.updateMatrixWorld(true); // sprites need the camera; nothing has been rendered yet, so bring the world matrices up to date
   for (const [u, v] of [[0.5, 0.5], [0.2, 0.2], [0.8, 0.8], [0.2, 0.8], [0.8, 0.2]]) { const x = hole.x0 + (hole.x1 - hole.x0) * u, z = hole.z0 + (hole.z1 - hole.z0) * v; rc.set(v3(x, 40, z), v3(0, -1, 0));
     for (const h of rc.intersectObjects([G.staticRoot, G.world], true)) { if (h.point.y > 1 || h.point.y < -1.5 || !h.object.isMesh) continue; (Array.isArray(h.object.material) ? h.object.material : [h.object.material]).forEach((m) => mats.add(m)); } }
   for (const m of mats) { if (m.userData.holeCut) continue; m.userData.holeCut = true; const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey ? m.customProgramCacheKey.bind(m) : () => '';
@@ -12103,14 +12104,16 @@ defMission({
         await S.say('박도현 중위', '대한민국 국군입니다! 서울… 되찾았습니다!', { dur: 2.8 });
         await S.wait(0.6);
         SFX.cheer(D.door2Pos, 5); S.later(1.5, () => SFX.cheer(D.door2Pos, 5));
-        for (const o of D.people) o.cheer = 0.001;
+        for (const o of D.people) { o.cheer = 0.001; o.face = Math.atan2(-(D.ex - o.p.x), -(D.h0 - o.p.z)); }
         S.sayBg('시민', '국군이다… 국군이 왔어!', { dur: 2.4 }); S.later(2.2, () => S.sayBg('시민', '살았다… 살았어!', { dur: 2.2 }));
         // then they run: out through the passage, up both flights, out of the kiosk and onto the plaza
         { const route = [v3(D.ex, 0, D.c1 - 0.5), v3(D.ex, 0, D.c0 - 1.5), v3(D.stairFoot.x, 0, D.stairFoot.z), v3(D.landing.x, 0, D.landing.z), v3(D.stairTop.x, 0, D.stairTop.z), v3(D.ex, 0, D.ez + 7)];
           const out = rtAt(RT.V[4] + 690 + 150, -48);
-          D.people.forEach((o, i) => S.later(2.4 + i * 0.12, () => { o.done = true; const p = o.m.root.position; G.world.remove(o.m.root);
-            const a = civ(p.x, p.z, { goTo: [route[0].x, route[0].z], speed: rand(3.6, 4.8), y: D.FL }); let k = 0;
-            S.every(0.25, () => { if (!a.alive) return true; if (a.goTo && a.pos.distanceTo(v3(a.goTo.x, a.pos.y, a.goTo.z)) > 1.4) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(rand(-0.8, 0.8), 0, 0)); else { const q = v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); return true; } }); })); }
+          // they leave in order — nearest the door first — in three files across the stair, a pace apart, all at the same pace
+          const order = [...D.people].sort((a, b) => b.p.z - a.p.z);
+          order.forEach((o, i) => S.later(2.2 + i * 0.42, () => { o.done = true; const p = o.m.root.position; G.world.remove(o.m.root); const lane = ((i % 3) - 1) * 1.25;
+            const a = civ(p.x, p.z, { goTo: [route[0].x + lane, route[0].z], speed: 3.8, y: D.FL }); a.yaw = o.m.root.rotation.y; let k = 0;
+            S.every(0.2, () => { if (!a.alive) return true; if (a.goTo && Math.hypot(a.goTo.x - a.pos.x, a.goTo.z - a.pos.z) > 1.0) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(lane, 0, 0)); else { const q = v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); return true; } }); })); }
         await S.wait(3);
         await S.say('한지운 하사', '천천히! 다 같이 나갈 수 있습니다!', { dur: 2.4 });
         await S.say('윤하린 중사', '소대장님, 통로 옆 기념관에 태극기가 그대로 있답니다. 역무원들이 점령 내내 숨겨 놨다고.', { dur: 3.8 });

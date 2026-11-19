@@ -173,14 +173,16 @@ defMission({
         await S.say('박도현 중위', '대한민국 국군입니다! 서울… 되찾았습니다!', { dur: 2.8 });
         await S.wait(0.6);
         SFX.cheer(D.door2Pos, 5); S.later(1.5, () => SFX.cheer(D.door2Pos, 5));
-        for (const o of D.people) o.cheer = 0.001;
+        for (const o of D.people) { o.cheer = 0.001; o.face = Math.atan2(-(D.ex - o.p.x), -(D.h0 - o.p.z)); }
         S.sayBg('시민', '국군이다… 국군이 왔어!', { dur: 2.4 }); S.later(2.2, () => S.sayBg('시민', '살았다… 살았어!', { dur: 2.2 }));
         // then they run: out through the passage, up both flights, out of the kiosk and onto the plaza
         { const route = [v3(D.ex, 0, D.c1 - 0.5), v3(D.ex, 0, D.c0 - 1.5), v3(D.stairFoot.x, 0, D.stairFoot.z), v3(D.landing.x, 0, D.landing.z), v3(D.stairTop.x, 0, D.stairTop.z), v3(D.ex, 0, D.ez + 7)];
           const out = rtAt(RT.V[4] + 690 + 150, -48);
-          D.people.forEach((o, i) => S.later(2.4 + i * 0.12, () => { o.done = true; const p = o.m.root.position; G.world.remove(o.m.root);
-            const a = civ(p.x, p.z, { goTo: [route[0].x, route[0].z], speed: rand(3.6, 4.8), y: D.FL }); let k = 0;
-            S.every(0.25, () => { if (!a.alive) return true; if (a.goTo && a.pos.distanceTo(v3(a.goTo.x, a.pos.y, a.goTo.z)) > 1.4) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(rand(-0.8, 0.8), 0, 0)); else { const q = v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); return true; } }); })); }
+          // they leave in order — nearest the door first — in three files across the stair, a pace apart, all at the same pace
+          const order = [...D.people].sort((a, b) => b.p.z - a.p.z);
+          order.forEach((o, i) => S.later(2.2 + i * 0.42, () => { o.done = true; const p = o.m.root.position; G.world.remove(o.m.root); const lane = ((i % 3) - 1) * 1.25;
+            const a = civ(p.x, p.z, { goTo: [route[0].x + lane, route[0].z], speed: 3.8, y: D.FL }); a.yaw = o.m.root.rotation.y; let k = 0;
+            S.every(0.2, () => { if (!a.alive) return true; if (a.goTo && Math.hypot(a.goTo.x - a.pos.x, a.goTo.z - a.pos.z) > 1.0) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(lane, 0, 0)); else { const q = v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); return true; } }); })); }
         await S.wait(3);
         await S.say('한지운 하사', '천천히! 다 같이 나갈 수 있습니다!', { dur: 2.4 });
         await S.say('윤하린 중사', '소대장님, 통로 옆 기념관에 태극기가 그대로 있답니다. 역무원들이 점령 내내 숨겨 놨다고.', { dur: 3.8 });

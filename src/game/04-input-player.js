@@ -113,9 +113,9 @@ function updatePlayer(dt) {
   const sh = Math.min(G.shake, 1.5); G.shake = Math.max(0, G.shake - dt * 1.8);
   camera.position.set(P.pos.x + _r.x * bx + rand(-1, 1) * sh * 0.06, P.pos.y + eyeH + by + rand(-1, 1) * sh * 0.06, P.pos.z + _r.z * bx);
   // the gun camera (H): look from just ahead of the K-M19's muzzle instead of from the seat
-  { const on = !!(G.gunCam && G.gunCamPod && P.ride && ['km19', 'm134'].includes(curId()) && !G.cut); if (!on && G.gunCam && (!P.ride || curId() !== 'km19')) G.gunCam = false;
+  { const on = !!(G.gunCam && G.gunCamPod && P.ride && ['km19', 'm134'].includes(curId()) && !G.cut); if (!on && G.gunCam && (!P.ride || !['km19', 'm134'].includes(curId()))) G.gunCam = false;
     if (on) { G.gunCamPod.updateMatrixWorld(); G.gunCamPod.localToWorld(camera.position.set(0, -0.32, -1.7)); camera.position.x += rand(-1, 1) * sh * 0.03; camera.position.y += rand(-1, 1) * sh * 0.03; }
-    if (G.gunCamCockpit) G.gunCamCockpit.visible = !on; document.body.classList.toggle('guncam', on); }
+    if (G.gunCamCockpit && P.ride) G.gunCamCockpit.visible = !on; /* only while seated: off the aircraft the cockpit stays hidden inside the shell */ document.body.classList.toggle('guncam', on); }
   P.punchP = damp(P.punchP, 0, 12, dt); P.punchY = damp(P.punchY, 0, 12, dt);
   const roll = (-fx * 0.012 * (P.sprinting ? 1.8 : 1)) + Math.sin(P.bob) * 0.006 * bobA * (P.sprinting ? 2 : 1);
   P.roll = damp(P.roll || 0, roll, 6, dt);
