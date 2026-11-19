@@ -50,13 +50,28 @@ class Vehicle {
   }
   /* two ground vehicles can never share space: sample this hull at nose, middle and tail; any sample inside another hull pushes the
      two apart along the shallower axis; smashable props in the way are knocked aside */
+  /* two waypoints beside an obstacle: level with its rear, then past its front. At speed the first is put far enough ahead for an
+     easy lane change; the old waypoints the detour carries us past are dropped, or we would turn back for them and circle */
+  planDetour(blk, bf, bl, fx, fz, early) {
+    const off = this.size[0] + blk.eL + 1.8 + Math.min(4, this.detours - 1), f1 = early ? -(blk.eF + this.size[2] * 0.4) : Math.max(-(blk.eF + this.size[2] * 0.6), -bf + 4), f2 = blk.eF + this.size[2] + (early ? 6 : 2);
+    // the lane we would swing into must be clear from just behind us to past the obstacle (at speed this is a lane change, not a crawl)
+    const clear = (sd) => { const px = -fz * sd, pz = fx * sd, tx = blk.pos.x + px * off, tz = blk.pos.z + pz * off, tl = (tx - this.pos.x) * fz - (tz - this.pos.z) * fx;
+      for (const v of G.vehicles) { if (v === this || v === blk || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz;
+        if (f < -(this.size[2] + v.size[2] + (early ? 8 : 2)) || f > bf + f2 + v.size[2] + 4) continue; const lat = rx * fz - rz * fx; if (Math.abs(lat - tl) < this.size[0] + Math.max(v.size[0], v.size[2] * 0.5) + 0.8) return false; }
+      return true; };
+    let side = (bl > 0 ? -1 : 1) * (this.detours % 2 ? 1 : -1); if (!clear(side)) { if (clear(-side)) side = -side; else if (early) return false; }
+    const px = -fz * side, pz = fx * side;
+    const a1 = v3(blk.pos.x + px * off + fx * f1, 0, blk.pos.z + pz * off + fz * f1), a2 = v3(blk.pos.x + px * off + fx * f2, 0, blk.pos.z + pz * off + fz * f2);
+    let j = this.pi; while (j < this.path.length - 1 && j - this.pi < 12) { const q = this.path[j], dx = q.x - blk.pos.x, dz = q.z - blk.pos.z; if (dx * fx + dz * fz < f2 && dx * dx + dz * dz < (f2 + 25) ** 2) j++; else break; }
+    this.path.splice(this.pi, j - this.pi, a1, a2); return true;
+  }
   unoverlap() {
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw), L = Math.max(0, this.size[2] - this.size[0]), w = this.size[0] * 0.85;
     for (const v of G.vehicles) { if (v === this || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const shove = !v.alive && this.type === 'tank';
       const dx0 = this.pos.x - v.pos.x, dz0 = this.pos.z - v.pos.z; if (dx0 * dx0 + dz0 * dz0 > (this.size[2] + v.size[2] + 2) ** 2) continue;
       const vf = [-Math.sin(v.yaw), -Math.cos(v.yaw)], vr = [-vf[1], vf[0]];
       for (const k of [-1, 0, 1]) { const px = this.pos.x + fx * L * k, pz = this.pos.z + fz * L * k, a = (px - v.pos.x) * vf[0] + (pz - v.pos.z) * vf[1], b = (px - v.pos.x) * vr[0] + (pz - v.pos.z) * vr[1];
-        const pa = v.size[2] + w - Math.abs(a), pb = v.size[0] + w - Math.abs(b); if (pa <= 0 || pb <= 0) continue;
+        const pa = v.size[2] + w - Math.abs(a), pb = v.size[0] + w - Math.abs(b); if (pa <= 0 || pb <= 0) continue; if (v === this.avoid) this.avoid = null; // touching what we meant to pass: brake for it again
         let mx, mz;
         // a tank meeting a wreck shoves it off its line sideways (and twists it a little) rather than bulldozing it down the road
         if (shove) { const sx = -fz, sz = fx, sd = Math.sign((v.pos.x - this.pos.x) * sx + (v.pos.z - this.pos.z) * sz) || 1, m = Math.min(pa, pb, 0.06);
@@ -64,7 +79,7 @@ class Vehicle {
           if (Math.random() < 0.04) FX.dust(v.pos.clone().add(v3(rand(-1, 1), 0.5, rand(-1, 1))), 3, [0.4, 0.38, 0.35], 0.5); if (Math.random() < 0.01) SFX.impact?.(v.pos); continue; }
         if (pa < pb) { const s = Math.sign(a) || 1; mx = vf[0] * pa * s; mz = vf[1] * pa * s; } else { const s = Math.sign(b) || 1; mx = vr[0] * pb * s; mz = vr[1] * pb * s; }
         const share = shove ? 0.1 : !v.alive || v.o.anchor || v.invuln && !this.invuln ? 1 : this.o.anchor ? 0 : 0.5; this.pos.x += mx * share; this.pos.z += mz * share; v.pos.x -= mx * (1 - share); v.pos.z -= mz * (1 - share);
-        this.cs = (this.cs || 0) * (shove ? 0.985 : 0.6); v.cs = (v.cs || 0) * 0.8; if (shove && Math.random() < 0.04) FX.dust(v.pos.clone().add(v3(rand(-1, 1), 0.5, rand(-1, 1))), 3, [0.4, 0.38, 0.35], 0.5); v.m.root.position.copy(v.pos); v.syncCol(); } }
+        const ahead = (v.pos.x - this.pos.x) * fx + (v.pos.z - this.pos.z) * fz > this.size[2] * 0.5; this.cs = (this.cs || 0) * (shove ? 0.985 : ahead ? 0.6 : 0.96); /* nose-on stops us; a scrape along a side only slows us */ v.cs = (v.cs || 0) * 0.8; if (shove && Math.random() < 0.04) FX.dust(v.pos.clone().add(v3(rand(-1, 1), 0.5, rand(-1, 1))), 3, [0.4, 0.38, 0.35], 0.5); v.m.root.position.copy(v.pos); v.syncCol(); } }
     if (G.smash && (this.cs || 0) > 0.8) for (const s of G.smash) { if (s.hit) continue; const dx = s.x - this.pos.x, dz = s.z - this.pos.z; if (dx * dx + dz * dz > (this.size[2] + s.r + 1) ** 2) continue;
       const a = dx * fx + dz * fz, b = Math.abs(dx * fz - dz * fx); if (a > -this.size[2] * 0.5 && a < this.size[2] + s.r && b < this.size[0] + s.r) smashIt(s, this); }
   }
@@ -80,7 +95,7 @@ class Vehicle {
     if (this.hp <= 0) this.die(src);
   }
   die(src) {
-    this.alive = false; this.cs = 0;
+    this.alive = false; this.cs = 0; this.diedAt = G.time;
     explode(this.pos.clone().add(v3(0, 1.2, 0)), { radius: 7, dmg: 120, vdmg: 0, size: this.type === 'drone' ? 0.7 : 1.6, src: this });
     if (this.type !== 'drone') addEmitter(this.pos.clone().add(v3(0, 1.5, 0)), 'fire', 1.3, 25, this.air ? 2 : 90);
     if (this.type !== 'drone' && !this.air) addEmitter(this.pos.clone().add(v3(0, 2.5, 0)), 'smoke', 0.8, 3, 120);
@@ -137,10 +152,16 @@ class Vehicle {
         if (this.pi === this.path.length - 1 && !this.o.loop) want2 = Math.min(want2, Math.sqrt(2 * acc * 1.4 * Math.max(0, d - 1.5)) + 0.4);
         // every ground vehicle keeps its distance: it brakes for whatever is in front of it in its path and never drives through it
         if (!this.air && this.size) { const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw); let lim = 1e9, blk = null, bf = 0, bl = 0;
-          for (const v of G.vehicles) { if (v === this || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz; if (f <= 0) continue;
+          if (this.avoid && this.pi > this.avoidIdx) this.avoid = null;
+          for (const v of G.vehicles) { if (v === this || v === this.avoid || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz; if (f <= 0) continue;
             const vx = -Math.sin(v.yaw), vz = -Math.cos(v.yaw), cf = Math.abs(fx * vx + fz * vz), cr = Math.abs(fz * vx - fx * vz), eF = cf * v.size[2] + cr * v.size[0], eL = cr * v.size[2] + cf * v.size[0];
             const lat = rx * fz - rz * fx; if (Math.abs(lat) > this.size[0] + eL + 0.5) continue; const gap = f - this.size[2] - eF, vs = (v.cs || 0) * cf;
             let l = gap < 2.5 ? 0 : gap < 16 ? Math.max(0, vs + (gap - 7) * 0.45) : 1e9; if (!v.alive && this.type === 'tank') l = Math.max(l, v.type === 'tank' ? 1.5 : 2.2); if (l < lim) { lim = l; blk = v; bf = f; bl = lat; blk.eF = eF; blk.eL = eL; } }
+          // a wreck or a parked vehicle seen in time: change lanes round it at speed instead of stopping behind it first
+          const still = blk && ((!blk.alive && G.time - (blk.diedAt ?? -99) > 3.5) || (blk.alive && (blk.cs || 0) < 0.3 && !(blk.path && blk.pi < blk.path.length && !blk.o.anchor)));
+          if (still && !this.o.noDetour && this.pi < this.path.length - 2 && bf - this.size[2] - blk.eF < Math.max(18, this.cs * 2.6) && bf - this.size[2] - blk.eF > 3) {
+            const n0 = this.detBlk === blk ? (this.detours || 0) + 1 : 1, d0 = this.detours; this.detours = n0;
+            if (this.planDetour(blk, bf, bl, fx, fz, true)) { this.detBlk = blk; this.avoid = blk; this.avoidIdx = this.pi + 1; lim = 1e9; } else this.detours = d0; }
           want2 = Math.min(want2, lim); this.blkBy = lim < 0.3 ? blk : null; const vid = (v) => v.vid ??= ++Vehicle.n;
           // held up by something standing still: if the goal is no further than it, this is as far as we go; otherwise drive round it
           // two vehicles stuck nose to nose: the older one waits, the newer one drives round. something that still has somewhere to go gets a few seconds before we go round it
@@ -149,11 +170,7 @@ class Vehicle {
             if (this.heldT > (moving ? 4 : 1.2)) { this.heldT = 0; const last = this.path[this.path.length - 1], dl = Math.hypot(last.x - this.pos.x, last.z - this.pos.z);
               this.detours = this.detBlk === blk ? (this.detours || 0) + 1 : 1; this.detBlk = blk;
               if ((this.pi >= this.path.length - 1 && dl < bf + blk.eF) || (this.detours > 4 && dl < 60)) { this.pi = this.path.length; if (this.o.onArrive) this.o.onArrive(this); }
-              else { const side = (bl > 0 ? -1 : 1) * (this.detours % 2 ? 1 : -1), off = this.size[0] + blk.eL + 1.8 + Math.min(4, this.detours), px = -fz * side, pz = fx * side;
-                const f1 = Math.max(-(blk.eF + this.size[2] * 0.6), -bf + 4), a1 = v3(blk.pos.x + px * off + fx * f1, 0, blk.pos.z + pz * off + fz * f1), a2 = v3(blk.pos.x + px * off + fx * (blk.eF + this.size[2] + 2), 0, blk.pos.z + pz * off + fz * (blk.eF + this.size[2] + 2));
-                // drop the old waypoints the detour already takes us past, or we would turn back for them and circle the obstacle
-                const lim2 = blk.eF + this.size[2] + 2; let j = this.pi; while (j < this.path.length - 1) { const q = this.path[j]; if ((q.x - blk.pos.x) * fx + (q.z - blk.pos.z) * fz < lim2) j++; else break; }
-                this.path.splice(this.pi, j - this.pi, a1, a2); } } } else this.heldT = 0; }
+              else this.planDetour(blk, bf, bl, fx, fz, false); } } else this.heldT = 0; }
         this.cs = this.cs ?? 0; this.cs = want2 > this.cs ? Math.min(want2, this.cs + acc * dt) : Math.max(want2, this.cs - acc * 2 * dt);
         const sp = this.cs;
         if (this.air) { this.vel.set(dx / d * sp, dy / d * sp, dz / d * sp); this.pos.addScaledVector(this.vel, dt); }

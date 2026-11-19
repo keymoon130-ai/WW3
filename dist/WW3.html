@@ -4076,6 +4076,12 @@ const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffff
 scene.add(stars);
 
 /* ---------------- textures & materials ---------------- */
+/* Chrome dithers canvas gradients (a fine 2×2 checker); on a texture stretched over the whole sky that checker shows as a grid.
+   Blurring the finished canvas by a couple of pixels averages the dither away. */
+function undither(g, w, h, px = 2) {
+  const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; tmp.getContext('2d').drawImage(g.canvas, 0, 0);
+  g.save(); g.clearRect(0, 0, w, h); g.filter = `blur(${px}px)`; for (const dx of [-w, 0, w]) g.drawImage(tmp, dx, 0); g.restore();
+}
 function canvasTex(w, h, draw, srgb = true) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d'); draw(g, w, h);
@@ -5375,13 +5381,28 @@ class Vehicle {
   }
   /* two ground vehicles can never share space: sample this hull at nose, middle and tail; any sample inside another hull pushes the
      two apart along the shallower axis; smashable props in the way are knocked aside */
+  /* two waypoints beside an obstacle: level with its rear, then past its front. At speed the first is put far enough ahead for an
+     easy lane change; the old waypoints the detour carries us past are dropped, or we would turn back for them and circle */
+  planDetour(blk, bf, bl, fx, fz, early) {
+    const off = this.size[0] + blk.eL + 1.8 + Math.min(4, this.detours - 1), f1 = early ? -(blk.eF + this.size[2] * 0.4) : Math.max(-(blk.eF + this.size[2] * 0.6), -bf + 4), f2 = blk.eF + this.size[2] + (early ? 6 : 2);
+    // the lane we would swing into must be clear from just behind us to past the obstacle (at speed this is a lane change, not a crawl)
+    const clear = (sd) => { const px = -fz * sd, pz = fx * sd, tx = blk.pos.x + px * off, tz = blk.pos.z + pz * off, tl = (tx - this.pos.x) * fz - (tz - this.pos.z) * fx;
+      for (const v of G.vehicles) { if (v === this || v === blk || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz;
+        if (f < -(this.size[2] + v.size[2] + (early ? 8 : 2)) || f > bf + f2 + v.size[2] + 4) continue; const lat = rx * fz - rz * fx; if (Math.abs(lat - tl) < this.size[0] + Math.max(v.size[0], v.size[2] * 0.5) + 0.8) return false; }
+      return true; };
+    let side = (bl > 0 ? -1 : 1) * (this.detours % 2 ? 1 : -1); if (!clear(side)) { if (clear(-side)) side = -side; else if (early) return false; }
+    const px = -fz * side, pz = fx * side;
+    const a1 = v3(blk.pos.x + px * off + fx * f1, 0, blk.pos.z + pz * off + fz * f1), a2 = v3(blk.pos.x + px * off + fx * f2, 0, blk.pos.z + pz * off + fz * f2);
+    let j = this.pi; while (j < this.path.length - 1 && j - this.pi < 12) { const q = this.path[j], dx = q.x - blk.pos.x, dz = q.z - blk.pos.z; if (dx * fx + dz * fz < f2 && dx * dx + dz * dz < (f2 + 25) ** 2) j++; else break; }
+    this.path.splice(this.pi, j - this.pi, a1, a2); return true;
+  }
   unoverlap() {
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw), L = Math.max(0, this.size[2] - this.size[0]), w = this.size[0] * 0.85;
     for (const v of G.vehicles) { if (v === this || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const shove = !v.alive && this.type === 'tank';
       const dx0 = this.pos.x - v.pos.x, dz0 = this.pos.z - v.pos.z; if (dx0 * dx0 + dz0 * dz0 > (this.size[2] + v.size[2] + 2) ** 2) continue;
       const vf = [-Math.sin(v.yaw), -Math.cos(v.yaw)], vr = [-vf[1], vf[0]];
       for (const k of [-1, 0, 1]) { const px = this.pos.x + fx * L * k, pz = this.pos.z + fz * L * k, a = (px - v.pos.x) * vf[0] + (pz - v.pos.z) * vf[1], b = (px - v.pos.x) * vr[0] + (pz - v.pos.z) * vr[1];
-        const pa = v.size[2] + w - Math.abs(a), pb = v.size[0] + w - Math.abs(b); if (pa <= 0 || pb <= 0) continue;
+        const pa = v.size[2] + w - Math.abs(a), pb = v.size[0] + w - Math.abs(b); if (pa <= 0 || pb <= 0) continue; if (v === this.avoid) this.avoid = null; // touching what we meant to pass: brake for it again
         let mx, mz;
         // a tank meeting a wreck shoves it off its line sideways (and twists it a little) rather than bulldozing it down the road
         if (shove) { const sx = -fz, sz = fx, sd = Math.sign((v.pos.x - this.pos.x) * sx + (v.pos.z - this.pos.z) * sz) || 1, m = Math.min(pa, pb, 0.06);
@@ -5389,7 +5410,7 @@ class Vehicle {
           if (Math.random() < 0.04) FX.dust(v.pos.clone().add(v3(rand(-1, 1), 0.5, rand(-1, 1))), 3, [0.4, 0.38, 0.35], 0.5); if (Math.random() < 0.01) SFX.impact?.(v.pos); continue; }
         if (pa < pb) { const s = Math.sign(a) || 1; mx = vf[0] * pa * s; mz = vf[1] * pa * s; } else { const s = Math.sign(b) || 1; mx = vr[0] * pb * s; mz = vr[1] * pb * s; }
         const share = shove ? 0.1 : !v.alive || v.o.anchor || v.invuln && !this.invuln ? 1 : this.o.anchor ? 0 : 0.5; this.pos.x += mx * share; this.pos.z += mz * share; v.pos.x -= mx * (1 - share); v.pos.z -= mz * (1 - share);
-        this.cs = (this.cs || 0) * (shove ? 0.985 : 0.6); v.cs = (v.cs || 0) * 0.8; if (shove && Math.random() < 0.04) FX.dust(v.pos.clone().add(v3(rand(-1, 1), 0.5, rand(-1, 1))), 3, [0.4, 0.38, 0.35], 0.5); v.m.root.position.copy(v.pos); v.syncCol(); } }
+        const ahead = (v.pos.x - this.pos.x) * fx + (v.pos.z - this.pos.z) * fz > this.size[2] * 0.5; this.cs = (this.cs || 0) * (shove ? 0.985 : ahead ? 0.6 : 0.96); /* nose-on stops us; a scrape along a side only slows us */ v.cs = (v.cs || 0) * 0.8; if (shove && Math.random() < 0.04) FX.dust(v.pos.clone().add(v3(rand(-1, 1), 0.5, rand(-1, 1))), 3, [0.4, 0.38, 0.35], 0.5); v.m.root.position.copy(v.pos); v.syncCol(); } }
     if (G.smash && (this.cs || 0) > 0.8) for (const s of G.smash) { if (s.hit) continue; const dx = s.x - this.pos.x, dz = s.z - this.pos.z; if (dx * dx + dz * dz > (this.size[2] + s.r + 1) ** 2) continue;
       const a = dx * fx + dz * fz, b = Math.abs(dx * fz - dz * fx); if (a > -this.size[2] * 0.5 && a < this.size[2] + s.r && b < this.size[0] + s.r) smashIt(s, this); }
   }
@@ -5405,7 +5426,7 @@ class Vehicle {
     if (this.hp <= 0) this.die(src);
   }
   die(src) {
-    this.alive = false; this.cs = 0;
+    this.alive = false; this.cs = 0; this.diedAt = G.time;
     explode(this.pos.clone().add(v3(0, 1.2, 0)), { radius: 7, dmg: 120, vdmg: 0, size: this.type === 'drone' ? 0.7 : 1.6, src: this });
     if (this.type !== 'drone') addEmitter(this.pos.clone().add(v3(0, 1.5, 0)), 'fire', 1.3, 25, this.air ? 2 : 90);
     if (this.type !== 'drone' && !this.air) addEmitter(this.pos.clone().add(v3(0, 2.5, 0)), 'smoke', 0.8, 3, 120);
@@ -5462,10 +5483,16 @@ class Vehicle {
         if (this.pi === this.path.length - 1 && !this.o.loop) want2 = Math.min(want2, Math.sqrt(2 * acc * 1.4 * Math.max(0, d - 1.5)) + 0.4);
         // every ground vehicle keeps its distance: it brakes for whatever is in front of it in its path and never drives through it
         if (!this.air && this.size) { const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw); let lim = 1e9, blk = null, bf = 0, bl = 0;
-          for (const v of G.vehicles) { if (v === this || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz; if (f <= 0) continue;
+          if (this.avoid && this.pi > this.avoidIdx) this.avoid = null;
+          for (const v of G.vehicles) { if (v === this || v === this.avoid || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz; if (f <= 0) continue;
             const vx = -Math.sin(v.yaw), vz = -Math.cos(v.yaw), cf = Math.abs(fx * vx + fz * vz), cr = Math.abs(fz * vx - fx * vz), eF = cf * v.size[2] + cr * v.size[0], eL = cr * v.size[2] + cf * v.size[0];
             const lat = rx * fz - rz * fx; if (Math.abs(lat) > this.size[0] + eL + 0.5) continue; const gap = f - this.size[2] - eF, vs = (v.cs || 0) * cf;
             let l = gap < 2.5 ? 0 : gap < 16 ? Math.max(0, vs + (gap - 7) * 0.45) : 1e9; if (!v.alive && this.type === 'tank') l = Math.max(l, v.type === 'tank' ? 1.5 : 2.2); if (l < lim) { lim = l; blk = v; bf = f; bl = lat; blk.eF = eF; blk.eL = eL; } }
+          // a wreck or a parked vehicle seen in time: change lanes round it at speed instead of stopping behind it first
+          const still = blk && ((!blk.alive && G.time - (blk.diedAt ?? -99) > 3.5) || (blk.alive && (blk.cs || 0) < 0.3 && !(blk.path && blk.pi < blk.path.length && !blk.o.anchor)));
+          if (still && !this.o.noDetour && this.pi < this.path.length - 2 && bf - this.size[2] - blk.eF < Math.max(18, this.cs * 2.6) && bf - this.size[2] - blk.eF > 3) {
+            const n0 = this.detBlk === blk ? (this.detours || 0) + 1 : 1, d0 = this.detours; this.detours = n0;
+            if (this.planDetour(blk, bf, bl, fx, fz, true)) { this.detBlk = blk; this.avoid = blk; this.avoidIdx = this.pi + 1; lim = 1e9; } else this.detours = d0; }
           want2 = Math.min(want2, lim); this.blkBy = lim < 0.3 ? blk : null; const vid = (v) => v.vid ??= ++Vehicle.n;
           // held up by something standing still: if the goal is no further than it, this is as far as we go; otherwise drive round it
           // two vehicles stuck nose to nose: the older one waits, the newer one drives round. something that still has somewhere to go gets a few seconds before we go round it
@@ -5474,11 +5501,7 @@ class Vehicle {
             if (this.heldT > (moving ? 4 : 1.2)) { this.heldT = 0; const last = this.path[this.path.length - 1], dl = Math.hypot(last.x - this.pos.x, last.z - this.pos.z);
               this.detours = this.detBlk === blk ? (this.detours || 0) + 1 : 1; this.detBlk = blk;
               if ((this.pi >= this.path.length - 1 && dl < bf + blk.eF) || (this.detours > 4 && dl < 60)) { this.pi = this.path.length; if (this.o.onArrive) this.o.onArrive(this); }
-              else { const side = (bl > 0 ? -1 : 1) * (this.detours % 2 ? 1 : -1), off = this.size[0] + blk.eL + 1.8 + Math.min(4, this.detours), px = -fz * side, pz = fx * side;
-                const f1 = Math.max(-(blk.eF + this.size[2] * 0.6), -bf + 4), a1 = v3(blk.pos.x + px * off + fx * f1, 0, blk.pos.z + pz * off + fz * f1), a2 = v3(blk.pos.x + px * off + fx * (blk.eF + this.size[2] + 2), 0, blk.pos.z + pz * off + fz * (blk.eF + this.size[2] + 2));
-                // drop the old waypoints the detour already takes us past, or we would turn back for them and circle the obstacle
-                const lim2 = blk.eF + this.size[2] + 2; let j = this.pi; while (j < this.path.length - 1) { const q = this.path[j]; if ((q.x - blk.pos.x) * fx + (q.z - blk.pos.z) * fz < lim2) j++; else break; }
-                this.path.splice(this.pi, j - this.pi, a1, a2); } } } else this.heldT = 0; }
+              else this.planDetour(blk, bf, bl, fx, fz, false); } } else this.heldT = 0; }
         this.cs = this.cs ?? 0; this.cs = want2 > this.cs ? Math.min(want2, this.cs + acc * dt) : Math.max(want2, this.cs - acc * 2 * dt);
         const sp = this.cs;
         if (this.air) { this.vel.set(dx / d * sp, dy / d * sp, dz / d * sp); this.pos.addScaledVector(this.vel, dt); }
@@ -6846,6 +6869,10 @@ function smashProp(kind, x, z, rot = 0, o = {}) {
   if (kind === 'jersey') { if (!JERSEY_G) { const sh = new THREE.Shape([[-0.3, 0], [0.3, 0], [0.3, 0.08], [0.12, 0.33], [0.08, 0.85], [-0.08, 0.85], [-0.12, 0.33], [-0.3, 0.08]].map(([a, b]) => new THREE.Vector2(a, b))); JERSEY_G = new THREE.ExtrudeGeometry(sh, { depth: 1.95, bevelEnabled: false }); JERSEY_G.translate(0, 0, -0.975); JERSEY_G.rotateY(Math.PI / 2); }
     add(JERSEY_G, MT.concrete(), 0, 0, 0); hx = 1; hz = 0.32; h = 0.85; r = 1.05; }
   else if (kind === 'bags') { const bm = MT.sandbag(); for (let row = 0; row < 3; row++) for (let i = 0; i < 3; i++) add(new RoundedBoxGeometry(0.62, 0.3, 0.42, 2, 0.1), bm, -0.66 + i * 0.66 + (row % 2) * 0.2 - 0.1, 0.16 + row * 0.3, rand(-0.04, 0.04)); hx = 1.05; hz = 0.3; h = 0.95; r = 1.1; }
+  else if (kind === 'crate') { // an air-dropped supply bundle: plywood box on a skid board, two cargo straps, stencilled lid
+    add(new THREE.BoxGeometry(1.3, 0.12, 1.3), MT.wood(), 0, 0.06, 0); add(new THREE.BoxGeometry(1.2, 0.95, 1.2), mat('ply', { color: 0x8a7a58, rough: 0.85 }), 0, 0.6, 0);
+    for (const sx of [-0.32, 0.32]) add(new THREE.BoxGeometry(0.06, 0.97, 1.22), mat('strap', { color: 0x3b3f2e, rough: 0.9 }), sx, 0.6, 0);
+    add(new THREE.BoxGeometry(1.22, 0.02, 0.5), mat('stencil', { color: 0x2c2c26, rough: 0.9 }), 0, 1.08, 0); hx = 0.65; hz = 0.65; h = 1.1; r = 0.95; }
   else { const burnt = !!o.burnt, m = burnt ? MT.burnt() : mat('car' + (o.color ?? 0x4a5560), { color: o.color ?? 0x4a5560, rough: 0.5, metal: 0.3 });
     add(new THREE.BoxGeometry(1.8, 0.75, 4.3), m, 0, 0.675, 0); add(new THREE.BoxGeometry(1.6, 0.6, 2.2), burnt ? MT.burnt() : MT.glass(), 0, 1.35, 0.2);
     for (const sx of [-0.8, 0.8]) for (const sz of [-1.35, 1.35]) { const w = add(new THREE.CylinderGeometry(0.33, 0.33, 0.25, 8), MT.dark(), sx, burnt ? 0.2 : 0.33, sz); w.rotation.z = Math.PI / 2; }
@@ -9919,9 +9946,13 @@ defMission({
         // ambush squads at the kerbs ahead
         G.hitMul = 0.45; const regen = S.every(0.5, () => { if (P.alive && P.hp < 100 && G.time - P.lastHit > 3) P.hp = Math.min(100, P.hp + 4); });
         let firstAmb = true;
-        const amb = S.every(13, () => { if (mine.q < 1300 || mine.q > M7.q0 - 60) return; if ((G.m7squads || []).filter((q) => q.tag === 'amb' && q.m.some((a) => a.alive)).length > 1) return;
-          const q = mine.q - rand(110, 170), side = pick([-1, 1]), p = hgPath(q, side * rand(19.5, 21.5)); m7Squad(v3(p.x, 0, p.z), randi(6, 8), { hold: true, tag: 'amb', spread: 3.5 });
+        // squads all along the road: one every ~7 s, up to three alive at once; often a second squad on the far kerb a little further on
+        const amb = S.every(7, () => { if (mine.q < 1300 || mine.q > M7.q0 - 60) return; if ((G.m7squads || []).filter((q) => q.tag === 'amb' && q.m.some((a) => a.alive)).length > 2) return;
+          const q = mine.q - rand(110, 170), side = pick([-1, 1]), p = hgPath(q, side * rand(19.5, 21.5)); m7Squad(v3(p.x, 0, p.z), randi(7, 9), { hold: true, tag: 'amb', spread: 3.5 });
+          if (Math.random() < 0.45) { const p2 = hgPath(q - rand(25, 45), -side * rand(19.5, 22)); m7Squad(v3(p2.x, 0, p2.z), randi(6, 8), { hold: true, tag: 'amb', spread: 3.2 }); }
           if (firstAmb) { firstAmb = false; S.later(2, () => S.say('윤하린 중사', `서한준! ${side < 0 ? '우측' : '좌측'} 인도에 적 분대! 쏴!`, { dur: 2.2 })); } });
+        // 시청역: the shelter the radio is calling about — enemy squads across 서울광장 and from 덕수궁 storming the subway exits, a handful of ours holding them
+        S.until(() => mine.q < HQ0 + RT.V[4] + 520).then(() => m7CityHallStation(S));
         // a K21 hit from behind skids out of the lane into the median and burns there
         const lose = (v) => { if (!v.alive) return; const p = v.pos.clone(); new Proj('shell', p.clone().add(v3(0, 2, 0)).addScaledVector(v3(Math.sin(v.yaw), 0, Math.cos(v.yaw)), -40), v3(Math.sin(v.yaw), -0.02, Math.cos(v.yaw)).normalize().multiplyScalar(160), { team: 'enemy' });
           S.later(0.3, () => { v.invuln = false; v.die(); const i = conv.indexOf(v); if (i >= 0) conv.splice(i, 1); let t = 0, q = hgQ(v.pos, v.q), sp = v.cs || SP, d = v.lane;
@@ -10154,13 +10185,13 @@ function m7Squad(center, n, o = {}) {
   const sp = o.spread ?? 2.6, m = [];
   for (let i = 0; i < n; i++) { const a = rand(0, TAU), r = Math.sqrt(Math.random()) * sp, x = center.x + Math.cos(a) * r, z = center.z + Math.sin(a) * r;
     const e = enemy(x, z, { tag: o.tag || 'sq', hold: !!o.hold, view: 130, acc: 0.5 }); if (!o.hold) { e.state = 'combat'; e.knownPos = (o.dest || P.pos).clone(); } m.push(e); }
-  const sq = { m, dest: o.dest || null, free: o.free ?? 0, tag: o.tag || 'sq', hold: !!o.hold, t0: G.time }; (G.m7squads = G.m7squads || []).push(sq); m7SquadDriver(); return sq;
+  const sq = { m, dest: o.dest || null, free: o.free ?? 0, tag: o.tag || 'sq', hold: !!o.hold, t0: G.time, keepT: G.time + (o.keep || 0) }; (G.m7squads = G.m7squads || []).push(sq); m7SquadDriver(); return sq;
 }
 function m7SquadDriver() {
   if (G.m7sqOn) return; G.m7sqOn = true; let acc = 0;
   G.updaters.push((dt) => { if (G.mode !== 'play') return; acc += dt; if (acc < 0.8) return; acc = 0; const L = G.m7squads || [];
     for (let k = L.length - 1; k >= 0; k--) { const sq = L[k], al = sq.m.filter((a) => a.alive); if (!al.length && (!sq.rally || sq.landed >= (sq.size || 0))) { L.splice(k, 1); continue; } if (!al.length) continue;
-      if (al.every((a) => a.pos.distanceTo(P.pos) > 420 && hiddenFromView(a.pos))) { al.forEach((a) => a.remove()); L.splice(k, 1); continue; }
+      if (!(G.time < sq.keepT) && al.every((a) => a.pos.distanceTo(P.pos) > 420 && hiddenFromView(a.pos))) { al.forEach((a) => a.remove()); L.splice(k, 1); continue; }
       if (sq.hold || sq.loose) continue;
       const lead = al[0];
       if (sq.rally && !sq.gathered) { if (G.time - sq.t0 > (sq.gatherT || 12) || al.every((a) => a.pos.distanceTo(sq.rally) < 7)) sq.gathered = true;
@@ -10183,11 +10214,11 @@ function m7Sky() {
   // painted opaque over a base gradient: a texture with soft alpha everywhere shows every texel as a faint grid when it is magnified this much
   const tex = canvasTex(1024, 512, (c, w, h) => { const bg = c.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, 'rgb(18,13,12)'); bg.addColorStop(0.5, 'rgb(36,21,17)'); bg.addColorStop(0.85, 'rgb(92,40,24)'); bg.addColorStop(1, 'rgb(150,66,34)'); c.fillStyle = bg; c.fillRect(0, 0, w, h);
     for (let i = 0; i < 1700; i++) { const v = Math.pow(Math.random(), 1.25) * 0.94, y = v * h, r = rand(22, 80) * (1 - v * 0.45), lit = Math.pow(v, 2.0), R = 30 + lit * 170, Gc = 22 + lit * 62, B = 20 + lit * 22, a = (0.12 + 0.2 * (1 - v)) * rand(0.6, 1.1), x0 = rand(0, w);
-      for (const x of [x0, x0 - w, x0 + w]) { if (x < -r || x > w + r) continue; const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${R | 0},${Gc | 0},${B | 0},${a})`); g.addColorStop(1, `rgba(${R | 0},${Gc | 0},${B | 0},0)`); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } } });
+      for (const x of [x0, x0 - w, x0 + w]) { if (x < -r || x > w + r) continue; const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${R | 0},${Gc | 0},${B | 0},${a})`); g.addColorStop(1, `rgba(${R | 0},${Gc | 0},${B | 0},0)`); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } } undither(c, w, h, 2); });
   tex.wrapS = THREE.RepeatWrapping;
   const dome = new THREE.Mesh(new THREE.SphereGeometry(2600, 48, 20, 0, TAU, 0, Math.PI * 0.52), new THREE.MeshBasicMaterial({ map: tex, depthWrite: false, fog: false, side: THREE.BackSide }));
   dome.renderOrder = -9; G.world.add(dome);
-  const gt = canvasTex(8, 256, (c, w, h) => { const g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(255,140,50,.75)'); g.addColorStop(0.25, 'rgba(240,90,30,.45)'); g.addColorStop(0.6, 'rgba(180,50,20,.12)'); g.addColorStop(1, 'rgba(120,30,10,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
+  const gt = canvasTex(8, 256, (c, w, h) => { const g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(255,140,50,.75)'); g.addColorStop(0.25, 'rgba(240,90,30,.45)'); g.addColorStop(0.6, 'rgba(180,50,20,.12)'); g.addColorStop(1, 'rgba(120,30,10,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); undither(c, w, h, 2); });
   const band = new THREE.Mesh(new THREE.CylinderGeometry(2350, 2350, 300, 64, 1, true), new THREE.MeshBasicMaterial({ map: gt, transparent: true, depthWrite: false, fog: false, side: THREE.BackSide, blending: THREE.AdditiveBlending }));
   band.renderOrder = -8; G.world.add(band);
   G.updaters.push((dt) => { dome.position.set(camera.position.x, 0, camera.position.z); dome.rotation.y += dt * 0.0025; band.position.set(camera.position.x, 70, camera.position.z); band.material.opacity = 0.9 + 0.1 * Math.sin(G.time * 1.7); });
@@ -10213,28 +10244,39 @@ function m7War(S) {
     const A = v3(c.x - Math.sin(cor.h) * L, 0, c.z - Math.cos(cor.h) * L), B = v3(c.x + Math.sin(cor.h) * L, 0, c.z + Math.cos(cor.h) * L), alt = Math.max(cor.alt, hgTopLine(A, B, 60) + 45);
     const bombs = Math.random() < 0.5 && c.distanceTo(P.pos) > 260 ? [[c.x, c.z]] : []; const r = Math.random(); m7Formation({ from: A, to: B, alt, n: r < 0.5 ? 3 : r < 0.8 ? 4 : 2, kind: r < 0.5 ? 'V' : 'E', bombs, wingBombs: bombs.length ? [[c.x, c.z]] : [] }); };
   const paras = [];
-  const transport = () => { if (!W.fight || aliveEnemies('para').length > 26) return; const cor = pickCor(), c = P.pos.clone().addScaledVector(fwd(), rand(180, 360)).add(v3(rand(-180, 180), 0, rand(-180, 180)));
+  const transport = () => { if (!W.fight || aliveEnemies('para').length > 34) return; const cor = pickCor(), c = P.pos.clone().addScaledVector(fwd(), rand(180, 360)).add(v3(rand(-180, 180), 0, rand(-180, 180)));
     if (G.groundAt(c.x, c.z) < -2 || (c.z > -1010 && c.z < 60 && Math.abs(c.x) < 700)) return; // never over the river
     const L = 1500, sp = 78, A = v3(c.x - Math.sin(cor.h) * L, 0, c.z - Math.cos(cor.h) * L), B = v3(c.x + Math.sin(cor.h) * L, 0, c.z + Math.cos(cor.h) * L), alt = Math.max(150, hgTopLine(A, B, 90) + 70);
-    const m = makeTransportMesh(), root = m.root; A.y = alt; B.y = alt; root.position.copy(A); root.lookAt(B); root.rotateY(Math.PI); G.world.add(root); const voice = jetVoice(); let t = 0, dropped = 0; const stick = { m: [], rally: null, t0: 0, tag: 'para', size: randi(8, 10), landed: 0, gatherT: 14 };
+    const m = makeTransportMesh(), root = m.root; A.y = alt; B.y = alt; root.position.copy(A); root.lookAt(B); root.rotateY(Math.PI); G.world.add(root); const voice = jetVoice(); let t = 0, dropped = 0, crates = 0; const stick = { m: [], rally: null, t0: 0, tag: 'para', size: randi(12, 16), landed: 0, gatherT: 16 };
+    // the escort goes in first: a strike flight down the same line ~10 s ahead of the transport, bombing the drop zone clear
+    { const dir = v3().subVectors(B, A).normalize(), tArr = L / sp, jetT = 1700 / 225, lead = Math.max(0.5, tArr - 10 - jetT), side = v3(-dir.z, 0, dir.x);
+      setGameTimeout(() => { if (G.mode !== 'play') return; const a = c.clone().addScaledVector(dir, -1700), b = c.clone().addScaledVector(dir, 1700), safe = c.distanceTo(P.pos) > 150;
+        const bombs = safe ? [[c.x + dir.x * 20, c.z + dir.z * 20]] : [], wing = safe ? [[c.x - dir.x * 30 + side.x * 25, c.z - dir.z * 30 + side.z * 25], [c.x + dir.x * 50 - side.x * 25, c.z + dir.z * 50 - side.z * 25]] : [];
+        m7Formation({ from: a, to: b, alt: alt + 25, n: pick([2, 3, 4]), kind: 'V', bombs, wingBombs: wing }); }, lead); }
     G.updaters.push((dt) => { if (G.mode !== 'play') { G.world.remove(root); voice.stop(); return true; } t += dt; const k = (t * sp) / (L * 2); root.position.lerpVectors(A, B, k); voice.update(root.position, dt);
-      const along = t * sp - L; if (dropped < stick.size && along > -60 && along < 60 + stick.size * 40) { if (t * 2.2 > dropped + (L - 60) / sp * 2.2) { const tail = root.localToWorld(m.root.userData.tail.clone()); paras.push({ g: m7Para(tail.x, tail.y, tail.z), v: v3().subVectors(B, A).normalize().multiplyScalar(sp * 0.8), t: 0, stick }); dropped++; } }
+      // the stick: out of both side doors together, a pair every quarter second (about 20 m between pairs), then two bundles off the ramp
+      const along = t * sp - L, t0 = (L - 40) / sp;
+      if (dropped < stick.size && t > t0 + Math.floor(dropped / 2) / 4) { const tail = root.localToWorld(m.root.userData.tail.clone().add(v3((dropped % 2 ? 1 : -1) * 1.9, 0.4, -3))); const dv = v3().subVectors(B, A).normalize(), sd = dropped % 2 ? 1 : -1; paras.push({ g: m7Para(tail.x, tail.y, tail.z), v: dv.clone().multiplyScalar(sp * rand(0.76, 0.84)).add(v3(-dv.z, 0, dv.x).multiplyScalar(sd * rand(11, 14))), t: 0, stick }); dropped++; } // out of each side door and away from the fuselage, so a pair's canopies open well clear of each other
+      else if (dropped >= stick.size && crates < 2 && t > t0 + stick.size / 8 + 0.6 + crates * 0.7) { const tail = root.localToWorld(m.root.userData.tail.clone()); paras.push({ g: m7CrateChute(tail.x, tail.y, tail.z), v: v3().subVectors(B, A).normalize().multiplyScalar(sp * 0.7), t: 0, stick, crate: true }); crates++; }
       if (k >= 1) { G.world.remove(root); voice.stop(); return true; } }); };
   let tJet = 4, tAA = 0.5, tBoom = 1.5, tShell = 3, tTr = 6;
   G.updaters.push((dt) => {
     if (G.mode !== 'play') return; if (W.off) return true;
-    if ((tJet -= dt) <= 0) { tJet = rand(8, 12); flight(); }
-    if ((tTr -= dt) <= 0) { tTr = rand(12, 18); transport(); }
+    if ((tJet -= dt) <= 0) { tJet = rand(16, 24); flight(); } // most jets now fly as the transports' strike escort; a few free sweeps between
+    if ((tTr -= dt) <= 0) { tTr = rand(13, 18); transport(); }
     if ((tAA -= dt) <= 0) { tAA = rand(0.5, 1.3); const g = far(300, 900), top = g.clone().add(v3(rand(-200, 200), rand(380, 700), rand(-200, 200))); g.y = G.groundAt(g.x, g.z) + 2; for (let i = 0; i < 4; i++) setGameTimeout(() => tracer(g.clone(), top.clone().add(v3(rand(-20, 20), rand(-20, 20), rand(-20, 20))), [1, 0.55, 0.25], 520), i * 0.09); }
     if ((tBoom -= dt) <= 0) { tBoom = rand(1.2, 3.2); blast(far(220, 900), rand(3, 5)); }
     if (W.fight && (tShell -= dt) <= 0) { tShell = rand(2, 4.5); const p = far(26, 75); SFX.whistle(p); setGameTimeout(() => { blast(p, rand(2.5, 3.6)); if (p.distanceTo(P.pos) < 45) G.shake += 0.25; }, 1.1); }
     // paratroopers: out of the ramp at the transport's speed, a second of fall, the canopy opens, a drift down; on the ground they shed it and form up
     for (let i = paras.length - 1; i >= 0; i--) { const q = paras[i], g = q.g; q.t += dt; q.v.multiplyScalar(Math.exp(-dt * 1.8)); const wind = v3(1.6, 0, 0.4);
-      const vy = q.t < 1.3 ? -9.8 * q.t : -5.6; g.position.x += (q.v.x + wind.x) * dt; g.position.z += (q.v.z + wind.z) * dt; g.position.y += vy * dt;
-      const can = g.userData.can; can.scale.setScalar(Math.min(1, Math.max(0.05, (q.t - 1.1) * 1.4))); can.scale.y *= 0.55; g.rotation.z = Math.sin(q.t * 0.9) * 0.12; g.rotation.x = Math.sin(q.t * 0.7) * 0.08;
+      const vy = q.t < 1.3 ? -9.8 * q.t : q.crate ? -7.2 : -5.6; g.position.x += (q.v.x + wind.x) * dt; g.position.z += (q.v.z + wind.z) * dt; g.position.y += vy * dt;
+      const can = g.userData.can; can.scale.setScalar(Math.min(1, Math.max(0.05, (q.t - 1.1) * 1.4)) * (can.userData.big ? 1.35 : 1)); can.scale.y *= 0.55; g.rotation.z = Math.sin(q.t * 0.9) * 0.12; g.rotation.x = Math.sin(q.t * 0.7) * 0.08;
       const x = g.position.x, z = g.position.z; let gy = G.groundAt(x, z); const roof = G.colliders.find((c) => x > c.min.x && x < c.max.x && z > c.min.z && z < c.max.z && c.max.y > 3); if (roof) gy = roof.max.y;
       if (g.position.y > gy + 0.2) continue;
-      paras.splice(i, 1); g.position.y = gy; g.rotation.set(0, g.rotation.y, 0); q.stick.landed++;
+      paras.splice(i, 1); g.position.y = gy; g.rotation.set(0, g.rotation.y, 0);
+      if (q.crate) { can.position.set(rand(2.5, 4.5), 0.25, rand(-1, 1)); can.scale.set(1.3, 0.08, 0.9); can.rotation.set(0, rand(0, TAU), 0); for (const l of g.userData.lines) l.visible = false;
+        if (!roof) { g.userData.body.visible = false; smashProp('crate', x, z, g.rotation.y); } FX.dust(v3(x, gy + 0.3, z), 6, [0.5, 0.47, 0.42], 0.5); (W.canopies = W.canopies || []).push(g); continue; }
+      q.stick.landed++;
       // the canopy collapses beside him and stays there
       can.position.set(rand(2, 4), 0.25, rand(-1, 1)); can.scale.set(1, 0.08, 0.7); can.rotation.set(0, rand(0, TAU), 0); for (const l of g.userData.lines) l.visible = false;
       if (!roof && aliveEnemies('para').length < 30) { g.userData.body.visible = false; const e = enemy(x, z, { tag: 'para', view: 130, acc: 0.5 }); e.knownPos = P.pos.clone();
@@ -10244,6 +10286,16 @@ function m7War(S) {
   });
 }
 const PARA_CAN = new THREE.SphereGeometry(3.6, 14, 5, 0, TAU, 0, Math.PI / 2.3);
+/* a supply bundle under a cargo chute: the same box that lands (see smashProp 'crate'), a bigger pale canopy on four risers */
+function m7CrateChute(x, y, z) {
+  const g = new THREE.Group(), cm = mat('cargoC', { color: 0xb8b49c, rough: 0.9, side: THREE.DoubleSide }), lm = mat('paraL', { color: 0x2a2a26, rough: 1 });
+  const can = new THREE.Mesh(PARA_CAN, cm); can.position.y = 7.4; can.scale.set(0.05, 0.03, 0.05); g.add(can); const lines = [];
+  for (const [a, b] of [[2.8, 2.8], [-2.8, 2.8], [2.8, -2.8], [-2.8, -2.8]]) { const L = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 3), lm), A = v3(a * 1.1, 7.2, b * 1.1), B = v3(0, 1.1, 0); L.position.copy(A).add(B).multiplyScalar(0.5); L.scale.y = A.distanceTo(B); L.quaternion.setFromUnitVectors(v3(0, 1, 0), A.clone().sub(B).normalize()); g.add(L); lines.push(L); }
+  const box = new THREE.Group(); const add = (geo, m, px, py, pz) => { const me = new THREE.Mesh(geo, m); me.position.set(px, py, pz); me.castShadow = true; box.add(me); };
+  add(new THREE.BoxGeometry(1.3, 0.12, 1.3), MT.wood(), 0, 0.06, 0); add(new THREE.BoxGeometry(1.2, 0.95, 1.2), mat('ply', { color: 0x8a7a58, rough: 0.85 }), 0, 0.6, 0);
+  for (const sx of [-0.32, 0.32]) add(new THREE.BoxGeometry(0.06, 0.97, 1.22), mat('strap', { color: 0x3b3f2e, rough: 0.9 }), sx, 0.6, 0);
+  g.add(box); g.userData = { can, lines, body: box }; g.position.set(x, y, z); g.rotation.y = rand(0, TAU); G.world.add(g); g.userData.can.userData.big = true; return g;
+}
 function m7Para(x, y, z) {
   const g = new THREE.Group(), cm = mat('paraC', { color: 0x6c6e58, rough: 0.9, side: THREE.DoubleSide }), lm = mat('paraL', { color: 0x2a2a26, rough: 1 });
   const can = new THREE.Mesh(PARA_CAN, cm); can.position.y = 6.2; can.scale.set(0.05, 0.03, 0.05); g.add(can); const lines = [];
@@ -10343,6 +10395,34 @@ function m7IllumFlare(a) {
     if (t >= burn || p.y < 15) { G.world.remove(g); releaseLight(L); return true; }
   });
   return true;
+}
+/* 시청역 under attack: three street exits (two on the 서울광장 kerb, one by 대한문), sandbagged by a few of ours; four enemy squads
+   come across the plaza and out of 덕수궁 at them as the column goes by */
+function m7CityHallStation(S) {
+  const V4 = RT.V[4], at = (s, d) => rtAt(V4 + s, d);
+  const exits = [[110, 25.5, 1], [190, 25.5, 1], [150, -25.5, -1]].map(([s, d, side]) => { const p = at(s, d); m7SubwayExit(p.x, p.z, p.yaw, side); return { p: v3(p.x, 0, p.z), side, yaw: p.yaw }; });
+  // the defenders: crouched behind sandbags at the top of the stairs
+  for (const [k, n] of [[0, 4], [2, 3]]) { const e = exits[k]; for (let i = 0; i < n; i++) { const a = at(k === 0 ? 98 + i * 2.6 : 138.5 + i * 2.6, e.side * 28.5); smashProp('bags', a.x, a.z, e.yaw);
+      const b = at(k === 0 ? 98 + i * 2.6 : 138.5 + i * 2.6, e.side * 27.2); const s = ally(b.x, b.z, { hold: true, hp: 160 }); s.wantCrouch = true; } }
+  // the attackers: two squads over the plaza lawn, one along the 시청 front, one out of the palace gate
+  const sq = [[[130, 95], 0], [[175, 110], 1], [[205, 60], 1], [[150, -62], 2]];
+  for (const [[s, d], k] of sq) { const c = at(s, d); m7Squad(v3(c.x, 0, c.z), randi(8, 9), { dest: exits[k].p.clone(), free: 12, tag: 'sch', spread: 3, keep: 90 }); }
+  // smoke over the plaza, fire in a 시청 window, tracer both ways
+  for (let i = 0; i < 3; i++) { const p = at(rand(120, 190), rand(40, 90)); addEmitter(v3(p.x, 0.5, p.z), 'smoke', 1.6, 2, 60); }
+  S.later(3, () => S.say('한지운 하사', '서한준! 시청역 입구, 적 분대가 밀고 들어간다! 쏴!', { dur: 2.6 }));
+}
+/* a 시청역 street exit: granite parapet round the stairwell, a glass canopy on steel posts, the round line-number signs on a pole */
+function m7SubwayExit(x, z, yaw, side) {
+  const g = new THREE.Group(); g.position.set(x, G.groundAt(x, z), z); g.rotation.y = yaw; G.world.add(g);
+  const add = (geo, m, px, py, pz) => { const me = new THREE.Mesh(geo, m); me.position.set(px, py, pz); me.castShadow = me.receiveShadow = true; g.add(me); return me; };
+  const gran = mat('exitGran', { color: 0x8e8a84, rough: 0.8 }), steel = mat('exitSteel', { color: 0x4c5258, rough: 0.5, metal: 0.6 }), glass = mat('exitGlass', { color: 0x7a909a, rough: 0.1, metal: 0.3, transparent: true, opacity: 0.45 });
+  add(new THREE.BoxGeometry(0.3, 1.0, 7), gran, -1.75, 0.5, 0); add(new THREE.BoxGeometry(0.3, 1.0, 7), gran, 1.75, 0.5, 0); add(new THREE.BoxGeometry(3.8, 1.0, 0.3), gran, 0, 0.5, -3.5); // stairwell parapet, open at +z
+  add(new THREE.BoxGeometry(3.2, 0.12, 6.4), mat('exitDark', { color: 0x1a1c1e, rough: 1 }), 0, 0.06, 0.2); // the stairs dropping into the dark
+  for (const [px, pz] of [[-1.75, -3.3], [1.75, -3.3], [-1.75, 3.3], [1.75, 3.3]]) add(new THREE.BoxGeometry(0.12, 2.9, 0.12), steel, px, 1.45, pz);
+  add(new THREE.BoxGeometry(4.0, 0.08, 7.4), glass, 0, 2.95, 0); add(new THREE.BoxGeometry(4.0, 0.14, 0.14), steel, 0, 2.9, -3.6); add(new THREE.BoxGeometry(4.0, 0.14, 0.14), steel, 0, 2.9, 3.6);
+  const pole = add(new THREE.CylinderGeometry(0.07, 0.07, 3.2, 8), steel, 2.3, 1.6, 3.4);
+  for (const [col, y] of [[0x0052a4, 2.95], [0x00a84d, 2.45]]) { const d = add(new THREE.CylinderGeometry(0.28, 0.28, 0.06, 18), mat('line' + col, { color: col, rough: 0.5 }), 2.3, y, 3.4); d.rotation.x = Math.PI / 2; }
+  const c = Math.abs(Math.cos(yaw)), s = Math.abs(Math.sin(yaw)), hx = 2.0 * c + 3.6 * s, hz = 2.0 * s + 3.6 * c; addCollider(x - hx, g.position.y, z - hz, x + hx, g.position.y + 1.0, z + hz);
 }
 
 /* =========================================================

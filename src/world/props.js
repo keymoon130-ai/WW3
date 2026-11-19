@@ -248,6 +248,10 @@ function smashProp(kind, x, z, rot = 0, o = {}) {
   if (kind === 'jersey') { if (!JERSEY_G) { const sh = new THREE.Shape([[-0.3, 0], [0.3, 0], [0.3, 0.08], [0.12, 0.33], [0.08, 0.85], [-0.08, 0.85], [-0.12, 0.33], [-0.3, 0.08]].map(([a, b]) => new THREE.Vector2(a, b))); JERSEY_G = new THREE.ExtrudeGeometry(sh, { depth: 1.95, bevelEnabled: false }); JERSEY_G.translate(0, 0, -0.975); JERSEY_G.rotateY(Math.PI / 2); }
     add(JERSEY_G, MT.concrete(), 0, 0, 0); hx = 1; hz = 0.32; h = 0.85; r = 1.05; }
   else if (kind === 'bags') { const bm = MT.sandbag(); for (let row = 0; row < 3; row++) for (let i = 0; i < 3; i++) add(new RoundedBoxGeometry(0.62, 0.3, 0.42, 2, 0.1), bm, -0.66 + i * 0.66 + (row % 2) * 0.2 - 0.1, 0.16 + row * 0.3, rand(-0.04, 0.04)); hx = 1.05; hz = 0.3; h = 0.95; r = 1.1; }
+  else if (kind === 'crate') { // an air-dropped supply bundle: plywood box on a skid board, two cargo straps, stencilled lid
+    add(new THREE.BoxGeometry(1.3, 0.12, 1.3), MT.wood(), 0, 0.06, 0); add(new THREE.BoxGeometry(1.2, 0.95, 1.2), mat('ply', { color: 0x8a7a58, rough: 0.85 }), 0, 0.6, 0);
+    for (const sx of [-0.32, 0.32]) add(new THREE.BoxGeometry(0.06, 0.97, 1.22), mat('strap', { color: 0x3b3f2e, rough: 0.9 }), sx, 0.6, 0);
+    add(new THREE.BoxGeometry(1.22, 0.02, 0.5), mat('stencil', { color: 0x2c2c26, rough: 0.9 }), 0, 1.08, 0); hx = 0.65; hz = 0.65; h = 1.1; r = 0.95; }
   else { const burnt = !!o.burnt, m = burnt ? MT.burnt() : mat('car' + (o.color ?? 0x4a5560), { color: o.color ?? 0x4a5560, rough: 0.5, metal: 0.3 });
     add(new THREE.BoxGeometry(1.8, 0.75, 4.3), m, 0, 0.675, 0); add(new THREE.BoxGeometry(1.6, 0.6, 2.2), burnt ? MT.burnt() : MT.glass(), 0, 1.35, 0.2);
     for (const sx of [-0.8, 0.8]) for (const sz of [-1.35, 1.35]) { const w = add(new THREE.CylinderGeometry(0.33, 0.33, 0.25, 8), MT.dark(), sx, burnt ? 0.2 : 0.33, sz); w.rotation.z = Math.PI / 2; }

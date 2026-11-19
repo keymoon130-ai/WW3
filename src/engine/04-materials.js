@@ -1,4 +1,10 @@
 /* ---------------- textures & materials ---------------- */
+/* Chrome dithers canvas gradients (a fine 2×2 checker); on a texture stretched over the whole sky that checker shows as a grid.
+   Blurring the finished canvas by a couple of pixels averages the dither away. */
+function undither(g, w, h, px = 2) {
+  const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; tmp.getContext('2d').drawImage(g.canvas, 0, 0);
+  g.save(); g.clearRect(0, 0, w, h); g.filter = `blur(${px}px)`; for (const dx of [-w, 0, w]) g.drawImage(tmp, dx, 0); g.restore();
+}
 function canvasTex(w, h, draw, srgb = true) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d'); draw(g, w, h);

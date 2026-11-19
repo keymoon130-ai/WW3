@@ -2,13 +2,13 @@ function m7Squad(center, n, o = {}) {
   const sp = o.spread ?? 2.6, m = [];
   for (let i = 0; i < n; i++) { const a = rand(0, TAU), r = Math.sqrt(Math.random()) * sp, x = center.x + Math.cos(a) * r, z = center.z + Math.sin(a) * r;
     const e = enemy(x, z, { tag: o.tag || 'sq', hold: !!o.hold, view: 130, acc: 0.5 }); if (!o.hold) { e.state = 'combat'; e.knownPos = (o.dest || P.pos).clone(); } m.push(e); }
-  const sq = { m, dest: o.dest || null, free: o.free ?? 0, tag: o.tag || 'sq', hold: !!o.hold, t0: G.time }; (G.m7squads = G.m7squads || []).push(sq); m7SquadDriver(); return sq;
+  const sq = { m, dest: o.dest || null, free: o.free ?? 0, tag: o.tag || 'sq', hold: !!o.hold, t0: G.time, keepT: G.time + (o.keep || 0) }; (G.m7squads = G.m7squads || []).push(sq); m7SquadDriver(); return sq;
 }
 function m7SquadDriver() {
   if (G.m7sqOn) return; G.m7sqOn = true; let acc = 0;
   G.updaters.push((dt) => { if (G.mode !== 'play') return; acc += dt; if (acc < 0.8) return; acc = 0; const L = G.m7squads || [];
     for (let k = L.length - 1; k >= 0; k--) { const sq = L[k], al = sq.m.filter((a) => a.alive); if (!al.length && (!sq.rally || sq.landed >= (sq.size || 0))) { L.splice(k, 1); continue; } if (!al.length) continue;
-      if (al.every((a) => a.pos.distanceTo(P.pos) > 420 && hiddenFromView(a.pos))) { al.forEach((a) => a.remove()); L.splice(k, 1); continue; }
+      if (!(G.time < sq.keepT) && al.every((a) => a.pos.distanceTo(P.pos) > 420 && hiddenFromView(a.pos))) { al.forEach((a) => a.remove()); L.splice(k, 1); continue; }
       if (sq.hold || sq.loose) continue;
       const lead = al[0];
       if (sq.rally && !sq.gathered) { if (G.time - sq.t0 > (sq.gatherT || 12) || al.every((a) => a.pos.distanceTo(sq.rally) < 7)) sq.gathered = true;
@@ -31,11 +31,11 @@ function m7Sky() {
   // painted opaque over a base gradient: a texture with soft alpha everywhere shows every texel as a faint grid when it is magnified this much
   const tex = canvasTex(1024, 512, (c, w, h) => { const bg = c.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, 'rgb(18,13,12)'); bg.addColorStop(0.5, 'rgb(36,21,17)'); bg.addColorStop(0.85, 'rgb(92,40,24)'); bg.addColorStop(1, 'rgb(150,66,34)'); c.fillStyle = bg; c.fillRect(0, 0, w, h);
     for (let i = 0; i < 1700; i++) { const v = Math.pow(Math.random(), 1.25) * 0.94, y = v * h, r = rand(22, 80) * (1 - v * 0.45), lit = Math.pow(v, 2.0), R = 30 + lit * 170, Gc = 22 + lit * 62, B = 20 + lit * 22, a = (0.12 + 0.2 * (1 - v)) * rand(0.6, 1.1), x0 = rand(0, w);
-      for (const x of [x0, x0 - w, x0 + w]) { if (x < -r || x > w + r) continue; const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${R | 0},${Gc | 0},${B | 0},${a})`); g.addColorStop(1, `rgba(${R | 0},${Gc | 0},${B | 0},0)`); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } } });
+      for (const x of [x0, x0 - w, x0 + w]) { if (x < -r || x > w + r) continue; const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${R | 0},${Gc | 0},${B | 0},${a})`); g.addColorStop(1, `rgba(${R | 0},${Gc | 0},${B | 0},0)`); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); } } undither(c, w, h, 2); });
   tex.wrapS = THREE.RepeatWrapping;
   const dome = new THREE.Mesh(new THREE.SphereGeometry(2600, 48, 20, 0, TAU, 0, Math.PI * 0.52), new THREE.MeshBasicMaterial({ map: tex, depthWrite: false, fog: false, side: THREE.BackSide }));
   dome.renderOrder = -9; G.world.add(dome);
-  const gt = canvasTex(8, 256, (c, w, h) => { const g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(255,140,50,.75)'); g.addColorStop(0.25, 'rgba(240,90,30,.45)'); g.addColorStop(0.6, 'rgba(180,50,20,.12)'); g.addColorStop(1, 'rgba(120,30,10,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
+  const gt = canvasTex(8, 256, (c, w, h) => { const g = c.createLinearGradient(0, h, 0, 0); g.addColorStop(0, 'rgba(255,140,50,.75)'); g.addColorStop(0.25, 'rgba(240,90,30,.45)'); g.addColorStop(0.6, 'rgba(180,50,20,.12)'); g.addColorStop(1, 'rgba(120,30,10,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); undither(c, w, h, 2); });
   const band = new THREE.Mesh(new THREE.CylinderGeometry(2350, 2350, 300, 64, 1, true), new THREE.MeshBasicMaterial({ map: gt, transparent: true, depthWrite: false, fog: false, side: THREE.BackSide, blending: THREE.AdditiveBlending }));
   band.renderOrder = -8; G.world.add(band);
   G.updaters.push((dt) => { dome.position.set(camera.position.x, 0, camera.position.z); dome.rotation.y += dt * 0.0025; band.position.set(camera.position.x, 70, camera.position.z); band.material.opacity = 0.9 + 0.1 * Math.sin(G.time * 1.7); });
@@ -61,28 +61,39 @@ function m7War(S) {
     const A = v3(c.x - Math.sin(cor.h) * L, 0, c.z - Math.cos(cor.h) * L), B = v3(c.x + Math.sin(cor.h) * L, 0, c.z + Math.cos(cor.h) * L), alt = Math.max(cor.alt, hgTopLine(A, B, 60) + 45);
     const bombs = Math.random() < 0.5 && c.distanceTo(P.pos) > 260 ? [[c.x, c.z]] : []; const r = Math.random(); m7Formation({ from: A, to: B, alt, n: r < 0.5 ? 3 : r < 0.8 ? 4 : 2, kind: r < 0.5 ? 'V' : 'E', bombs, wingBombs: bombs.length ? [[c.x, c.z]] : [] }); };
   const paras = [];
-  const transport = () => { if (!W.fight || aliveEnemies('para').length > 26) return; const cor = pickCor(), c = P.pos.clone().addScaledVector(fwd(), rand(180, 360)).add(v3(rand(-180, 180), 0, rand(-180, 180)));
+  const transport = () => { if (!W.fight || aliveEnemies('para').length > 34) return; const cor = pickCor(), c = P.pos.clone().addScaledVector(fwd(), rand(180, 360)).add(v3(rand(-180, 180), 0, rand(-180, 180)));
     if (G.groundAt(c.x, c.z) < -2 || (c.z > -1010 && c.z < 60 && Math.abs(c.x) < 700)) return; // never over the river
     const L = 1500, sp = 78, A = v3(c.x - Math.sin(cor.h) * L, 0, c.z - Math.cos(cor.h) * L), B = v3(c.x + Math.sin(cor.h) * L, 0, c.z + Math.cos(cor.h) * L), alt = Math.max(150, hgTopLine(A, B, 90) + 70);
-    const m = makeTransportMesh(), root = m.root; A.y = alt; B.y = alt; root.position.copy(A); root.lookAt(B); root.rotateY(Math.PI); G.world.add(root); const voice = jetVoice(); let t = 0, dropped = 0; const stick = { m: [], rally: null, t0: 0, tag: 'para', size: randi(8, 10), landed: 0, gatherT: 14 };
+    const m = makeTransportMesh(), root = m.root; A.y = alt; B.y = alt; root.position.copy(A); root.lookAt(B); root.rotateY(Math.PI); G.world.add(root); const voice = jetVoice(); let t = 0, dropped = 0, crates = 0; const stick = { m: [], rally: null, t0: 0, tag: 'para', size: randi(12, 16), landed: 0, gatherT: 16 };
+    // the escort goes in first: a strike flight down the same line ~10 s ahead of the transport, bombing the drop zone clear
+    { const dir = v3().subVectors(B, A).normalize(), tArr = L / sp, jetT = 1700 / 225, lead = Math.max(0.5, tArr - 10 - jetT), side = v3(-dir.z, 0, dir.x);
+      setGameTimeout(() => { if (G.mode !== 'play') return; const a = c.clone().addScaledVector(dir, -1700), b = c.clone().addScaledVector(dir, 1700), safe = c.distanceTo(P.pos) > 150;
+        const bombs = safe ? [[c.x + dir.x * 20, c.z + dir.z * 20]] : [], wing = safe ? [[c.x - dir.x * 30 + side.x * 25, c.z - dir.z * 30 + side.z * 25], [c.x + dir.x * 50 - side.x * 25, c.z + dir.z * 50 - side.z * 25]] : [];
+        m7Formation({ from: a, to: b, alt: alt + 25, n: pick([2, 3, 4]), kind: 'V', bombs, wingBombs: wing }); }, lead); }
     G.updaters.push((dt) => { if (G.mode !== 'play') { G.world.remove(root); voice.stop(); return true; } t += dt; const k = (t * sp) / (L * 2); root.position.lerpVectors(A, B, k); voice.update(root.position, dt);
-      const along = t * sp - L; if (dropped < stick.size && along > -60 && along < 60 + stick.size * 40) { if (t * 2.2 > dropped + (L - 60) / sp * 2.2) { const tail = root.localToWorld(m.root.userData.tail.clone()); paras.push({ g: m7Para(tail.x, tail.y, tail.z), v: v3().subVectors(B, A).normalize().multiplyScalar(sp * 0.8), t: 0, stick }); dropped++; } }
+      // the stick: out of both side doors together, a pair every quarter second (about 20 m between pairs), then two bundles off the ramp
+      const along = t * sp - L, t0 = (L - 40) / sp;
+      if (dropped < stick.size && t > t0 + Math.floor(dropped / 2) / 4) { const tail = root.localToWorld(m.root.userData.tail.clone().add(v3((dropped % 2 ? 1 : -1) * 1.9, 0.4, -3))); const dv = v3().subVectors(B, A).normalize(), sd = dropped % 2 ? 1 : -1; paras.push({ g: m7Para(tail.x, tail.y, tail.z), v: dv.clone().multiplyScalar(sp * rand(0.76, 0.84)).add(v3(-dv.z, 0, dv.x).multiplyScalar(sd * rand(11, 14))), t: 0, stick }); dropped++; } // out of each side door and away from the fuselage, so a pair's canopies open well clear of each other
+      else if (dropped >= stick.size && crates < 2 && t > t0 + stick.size / 8 + 0.6 + crates * 0.7) { const tail = root.localToWorld(m.root.userData.tail.clone()); paras.push({ g: m7CrateChute(tail.x, tail.y, tail.z), v: v3().subVectors(B, A).normalize().multiplyScalar(sp * 0.7), t: 0, stick, crate: true }); crates++; }
       if (k >= 1) { G.world.remove(root); voice.stop(); return true; } }); };
   let tJet = 4, tAA = 0.5, tBoom = 1.5, tShell = 3, tTr = 6;
   G.updaters.push((dt) => {
     if (G.mode !== 'play') return; if (W.off) return true;
-    if ((tJet -= dt) <= 0) { tJet = rand(8, 12); flight(); }
-    if ((tTr -= dt) <= 0) { tTr = rand(12, 18); transport(); }
+    if ((tJet -= dt) <= 0) { tJet = rand(16, 24); flight(); } // most jets now fly as the transports' strike escort; a few free sweeps between
+    if ((tTr -= dt) <= 0) { tTr = rand(13, 18); transport(); }
     if ((tAA -= dt) <= 0) { tAA = rand(0.5, 1.3); const g = far(300, 900), top = g.clone().add(v3(rand(-200, 200), rand(380, 700), rand(-200, 200))); g.y = G.groundAt(g.x, g.z) + 2; for (let i = 0; i < 4; i++) setGameTimeout(() => tracer(g.clone(), top.clone().add(v3(rand(-20, 20), rand(-20, 20), rand(-20, 20))), [1, 0.55, 0.25], 520), i * 0.09); }
     if ((tBoom -= dt) <= 0) { tBoom = rand(1.2, 3.2); blast(far(220, 900), rand(3, 5)); }
     if (W.fight && (tShell -= dt) <= 0) { tShell = rand(2, 4.5); const p = far(26, 75); SFX.whistle(p); setGameTimeout(() => { blast(p, rand(2.5, 3.6)); if (p.distanceTo(P.pos) < 45) G.shake += 0.25; }, 1.1); }
     // paratroopers: out of the ramp at the transport's speed, a second of fall, the canopy opens, a drift down; on the ground they shed it and form up
     for (let i = paras.length - 1; i >= 0; i--) { const q = paras[i], g = q.g; q.t += dt; q.v.multiplyScalar(Math.exp(-dt * 1.8)); const wind = v3(1.6, 0, 0.4);
-      const vy = q.t < 1.3 ? -9.8 * q.t : -5.6; g.position.x += (q.v.x + wind.x) * dt; g.position.z += (q.v.z + wind.z) * dt; g.position.y += vy * dt;
-      const can = g.userData.can; can.scale.setScalar(Math.min(1, Math.max(0.05, (q.t - 1.1) * 1.4))); can.scale.y *= 0.55; g.rotation.z = Math.sin(q.t * 0.9) * 0.12; g.rotation.x = Math.sin(q.t * 0.7) * 0.08;
+      const vy = q.t < 1.3 ? -9.8 * q.t : q.crate ? -7.2 : -5.6; g.position.x += (q.v.x + wind.x) * dt; g.position.z += (q.v.z + wind.z) * dt; g.position.y += vy * dt;
+      const can = g.userData.can; can.scale.setScalar(Math.min(1, Math.max(0.05, (q.t - 1.1) * 1.4)) * (can.userData.big ? 1.35 : 1)); can.scale.y *= 0.55; g.rotation.z = Math.sin(q.t * 0.9) * 0.12; g.rotation.x = Math.sin(q.t * 0.7) * 0.08;
       const x = g.position.x, z = g.position.z; let gy = G.groundAt(x, z); const roof = G.colliders.find((c) => x > c.min.x && x < c.max.x && z > c.min.z && z < c.max.z && c.max.y > 3); if (roof) gy = roof.max.y;
       if (g.position.y > gy + 0.2) continue;
-      paras.splice(i, 1); g.position.y = gy; g.rotation.set(0, g.rotation.y, 0); q.stick.landed++;
+      paras.splice(i, 1); g.position.y = gy; g.rotation.set(0, g.rotation.y, 0);
+      if (q.crate) { can.position.set(rand(2.5, 4.5), 0.25, rand(-1, 1)); can.scale.set(1.3, 0.08, 0.9); can.rotation.set(0, rand(0, TAU), 0); for (const l of g.userData.lines) l.visible = false;
+        if (!roof) { g.userData.body.visible = false; smashProp('crate', x, z, g.rotation.y); } FX.dust(v3(x, gy + 0.3, z), 6, [0.5, 0.47, 0.42], 0.5); (W.canopies = W.canopies || []).push(g); continue; }
+      q.stick.landed++;
       // the canopy collapses beside him and stays there
       can.position.set(rand(2, 4), 0.25, rand(-1, 1)); can.scale.set(1, 0.08, 0.7); can.rotation.set(0, rand(0, TAU), 0); for (const l of g.userData.lines) l.visible = false;
       if (!roof && aliveEnemies('para').length < 30) { g.userData.body.visible = false; const e = enemy(x, z, { tag: 'para', view: 130, acc: 0.5 }); e.knownPos = P.pos.clone();
@@ -92,6 +103,16 @@ function m7War(S) {
   });
 }
 const PARA_CAN = new THREE.SphereGeometry(3.6, 14, 5, 0, TAU, 0, Math.PI / 2.3);
+/* a supply bundle under a cargo chute: the same box that lands (see smashProp 'crate'), a bigger pale canopy on four risers */
+function m7CrateChute(x, y, z) {
+  const g = new THREE.Group(), cm = mat('cargoC', { color: 0xb8b49c, rough: 0.9, side: THREE.DoubleSide }), lm = mat('paraL', { color: 0x2a2a26, rough: 1 });
+  const can = new THREE.Mesh(PARA_CAN, cm); can.position.y = 7.4; can.scale.set(0.05, 0.03, 0.05); g.add(can); const lines = [];
+  for (const [a, b] of [[2.8, 2.8], [-2.8, 2.8], [2.8, -2.8], [-2.8, -2.8]]) { const L = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 3), lm), A = v3(a * 1.1, 7.2, b * 1.1), B = v3(0, 1.1, 0); L.position.copy(A).add(B).multiplyScalar(0.5); L.scale.y = A.distanceTo(B); L.quaternion.setFromUnitVectors(v3(0, 1, 0), A.clone().sub(B).normalize()); g.add(L); lines.push(L); }
+  const box = new THREE.Group(); const add = (geo, m, px, py, pz) => { const me = new THREE.Mesh(geo, m); me.position.set(px, py, pz); me.castShadow = true; box.add(me); };
+  add(new THREE.BoxGeometry(1.3, 0.12, 1.3), MT.wood(), 0, 0.06, 0); add(new THREE.BoxGeometry(1.2, 0.95, 1.2), mat('ply', { color: 0x8a7a58, rough: 0.85 }), 0, 0.6, 0);
+  for (const sx of [-0.32, 0.32]) add(new THREE.BoxGeometry(0.06, 0.97, 1.22), mat('strap', { color: 0x3b3f2e, rough: 0.9 }), sx, 0.6, 0);
+  g.add(box); g.userData = { can, lines, body: box }; g.position.set(x, y, z); g.rotation.y = rand(0, TAU); G.world.add(g); g.userData.can.userData.big = true; return g;
+}
 function m7Para(x, y, z) {
   const g = new THREE.Group(), cm = mat('paraC', { color: 0x6c6e58, rough: 0.9, side: THREE.DoubleSide }), lm = mat('paraL', { color: 0x2a2a26, rough: 1 });
   const can = new THREE.Mesh(PARA_CAN, cm); can.position.y = 6.2; can.scale.set(0.05, 0.03, 0.05); g.add(can); const lines = [];
@@ -191,4 +212,32 @@ function m7IllumFlare(a) {
     if (t >= burn || p.y < 15) { G.world.remove(g); releaseLight(L); return true; }
   });
   return true;
+}
+/* 시청역 under attack: three street exits (two on the 서울광장 kerb, one by 대한문), sandbagged by a few of ours; four enemy squads
+   come across the plaza and out of 덕수궁 at them as the column goes by */
+function m7CityHallStation(S) {
+  const V4 = RT.V[4], at = (s, d) => rtAt(V4 + s, d);
+  const exits = [[110, 25.5, 1], [190, 25.5, 1], [150, -25.5, -1]].map(([s, d, side]) => { const p = at(s, d); m7SubwayExit(p.x, p.z, p.yaw, side); return { p: v3(p.x, 0, p.z), side, yaw: p.yaw }; });
+  // the defenders: crouched behind sandbags at the top of the stairs
+  for (const [k, n] of [[0, 4], [2, 3]]) { const e = exits[k]; for (let i = 0; i < n; i++) { const a = at(k === 0 ? 98 + i * 2.6 : 138.5 + i * 2.6, e.side * 28.5); smashProp('bags', a.x, a.z, e.yaw);
+      const b = at(k === 0 ? 98 + i * 2.6 : 138.5 + i * 2.6, e.side * 27.2); const s = ally(b.x, b.z, { hold: true, hp: 160 }); s.wantCrouch = true; } }
+  // the attackers: two squads over the plaza lawn, one along the 시청 front, one out of the palace gate
+  const sq = [[[130, 95], 0], [[175, 110], 1], [[205, 60], 1], [[150, -62], 2]];
+  for (const [[s, d], k] of sq) { const c = at(s, d); m7Squad(v3(c.x, 0, c.z), randi(8, 9), { dest: exits[k].p.clone(), free: 12, tag: 'sch', spread: 3, keep: 90 }); }
+  // smoke over the plaza, fire in a 시청 window, tracer both ways
+  for (let i = 0; i < 3; i++) { const p = at(rand(120, 190), rand(40, 90)); addEmitter(v3(p.x, 0.5, p.z), 'smoke', 1.6, 2, 60); }
+  S.later(3, () => S.say('한지운 하사', '서한준! 시청역 입구, 적 분대가 밀고 들어간다! 쏴!', { dur: 2.6 }));
+}
+/* a 시청역 street exit: granite parapet round the stairwell, a glass canopy on steel posts, the round line-number signs on a pole */
+function m7SubwayExit(x, z, yaw, side) {
+  const g = new THREE.Group(); g.position.set(x, G.groundAt(x, z), z); g.rotation.y = yaw; G.world.add(g);
+  const add = (geo, m, px, py, pz) => { const me = new THREE.Mesh(geo, m); me.position.set(px, py, pz); me.castShadow = me.receiveShadow = true; g.add(me); return me; };
+  const gran = mat('exitGran', { color: 0x8e8a84, rough: 0.8 }), steel = mat('exitSteel', { color: 0x4c5258, rough: 0.5, metal: 0.6 }), glass = mat('exitGlass', { color: 0x7a909a, rough: 0.1, metal: 0.3, transparent: true, opacity: 0.45 });
+  add(new THREE.BoxGeometry(0.3, 1.0, 7), gran, -1.75, 0.5, 0); add(new THREE.BoxGeometry(0.3, 1.0, 7), gran, 1.75, 0.5, 0); add(new THREE.BoxGeometry(3.8, 1.0, 0.3), gran, 0, 0.5, -3.5); // stairwell parapet, open at +z
+  add(new THREE.BoxGeometry(3.2, 0.12, 6.4), mat('exitDark', { color: 0x1a1c1e, rough: 1 }), 0, 0.06, 0.2); // the stairs dropping into the dark
+  for (const [px, pz] of [[-1.75, -3.3], [1.75, -3.3], [-1.75, 3.3], [1.75, 3.3]]) add(new THREE.BoxGeometry(0.12, 2.9, 0.12), steel, px, 1.45, pz);
+  add(new THREE.BoxGeometry(4.0, 0.08, 7.4), glass, 0, 2.95, 0); add(new THREE.BoxGeometry(4.0, 0.14, 0.14), steel, 0, 2.9, -3.6); add(new THREE.BoxGeometry(4.0, 0.14, 0.14), steel, 0, 2.9, 3.6);
+  const pole = add(new THREE.CylinderGeometry(0.07, 0.07, 3.2, 8), steel, 2.3, 1.6, 3.4);
+  for (const [col, y] of [[0x0052a4, 2.95], [0x00a84d, 2.45]]) { const d = add(new THREE.CylinderGeometry(0.28, 0.28, 0.06, 18), mat('line' + col, { color: col, rough: 0.5 }), 2.3, y, 3.4); d.rotation.x = Math.PI / 2; }
+  const c = Math.abs(Math.cos(yaw)), s = Math.abs(Math.sin(yaw)), hx = 2.0 * c + 3.6 * s, hz = 2.0 * s + 3.6 * c; addCollider(x - hx, g.position.y, z - hz, x + hx, g.position.y + 1.0, z + hz);
 }

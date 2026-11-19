@@ -418,9 +418,13 @@ defMission({
         // ambush squads at the kerbs ahead
         G.hitMul = 0.45; const regen = S.every(0.5, () => { if (P.alive && P.hp < 100 && G.time - P.lastHit > 3) P.hp = Math.min(100, P.hp + 4); });
         let firstAmb = true;
-        const amb = S.every(13, () => { if (mine.q < 1300 || mine.q > M7.q0 - 60) return; if ((G.m7squads || []).filter((q) => q.tag === 'amb' && q.m.some((a) => a.alive)).length > 1) return;
-          const q = mine.q - rand(110, 170), side = pick([-1, 1]), p = hgPath(q, side * rand(19.5, 21.5)); m7Squad(v3(p.x, 0, p.z), randi(6, 8), { hold: true, tag: 'amb', spread: 3.5 });
+        // squads all along the road: one every ~7 s, up to three alive at once; often a second squad on the far kerb a little further on
+        const amb = S.every(7, () => { if (mine.q < 1300 || mine.q > M7.q0 - 60) return; if ((G.m7squads || []).filter((q) => q.tag === 'amb' && q.m.some((a) => a.alive)).length > 2) return;
+          const q = mine.q - rand(110, 170), side = pick([-1, 1]), p = hgPath(q, side * rand(19.5, 21.5)); m7Squad(v3(p.x, 0, p.z), randi(7, 9), { hold: true, tag: 'amb', spread: 3.5 });
+          if (Math.random() < 0.45) { const p2 = hgPath(q - rand(25, 45), -side * rand(19.5, 22)); m7Squad(v3(p2.x, 0, p2.z), randi(6, 8), { hold: true, tag: 'amb', spread: 3.2 }); }
           if (firstAmb) { firstAmb = false; S.later(2, () => S.say('윤하린 중사', `서한준! ${side < 0 ? '우측' : '좌측'} 인도에 적 분대! 쏴!`, { dur: 2.2 })); } });
+        // 시청역: the shelter the radio is calling about — enemy squads across 서울광장 and from 덕수궁 storming the subway exits, a handful of ours holding them
+        S.until(() => mine.q < HQ0 + RT.V[4] + 520).then(() => m7CityHallStation(S));
         // a K21 hit from behind skids out of the lane into the median and burns there
         const lose = (v) => { if (!v.alive) return; const p = v.pos.clone(); new Proj('shell', p.clone().add(v3(0, 2, 0)).addScaledVector(v3(Math.sin(v.yaw), 0, Math.cos(v.yaw)), -40), v3(Math.sin(v.yaw), -0.02, Math.cos(v.yaw)).normalize().multiplyScalar(160), { team: 'enemy' });
           S.later(0.3, () => { v.invuln = false; v.die(); const i = conv.indexOf(v); if (i >= 0) conv.splice(i, 1); let t = 0, q = hgQ(v.pos, v.q), sp = v.cs || SP, d = v.lane;
