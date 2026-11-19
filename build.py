@@ -29,6 +29,21 @@ def addon(rel):
 addons = '\n'.join(addon(r) for r in ADD)
 nl = js.index('\n')
 js = js[:nl + 1] + addons + js[nl + 1:]
+# syntax check before writing anything: a stray comment or bracket would otherwise ship a game that never starts
+import subprocess, tempfile, shutil
+if shutil.which('node'):
+    with tempfile.NamedTemporaryFile('w', suffix='.mjs', delete=False, encoding='utf-8') as tf: tf.write(js); tmp = tf.name
+    r = subprocess.run(['node', '--check', tmp], capture_output=True, text=True); os.unlink(tmp)
+    if r.returncode != 0:
+        err = r.stderr.replace(tmp, 'WW3.js'); m = re.search(r'WW3\.js:(\d+)', err)
+        if m:  # map the joined line back to its source file
+            ln = int(m.group(1)) - addons.count('\n') - 1; acc = 0
+            for f in order:
+                n = open(os.path.join(src, f), encoding='utf-8').read().count('\n') + 1
+                if acc + n >= ln: err += '\n→ src/%s:%d' % (f, ln - acc); break
+                acc += n
+        raise SystemExit('syntax error, nothing written:\n' + err)
+else: print('warning: node not found, syntax check skipped')
 shell = open(os.path.join(src, 'shell.html'), encoding='utf-8').read()
 i = shell.index('<canvas id="game">')
 head, body = shell[:i], shell[i:]
