@@ -20,6 +20,7 @@ function m10Shelter() {
   B(X(-2.6), X(-2.2), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(2.2), X(2.6), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(-2.6), X(2.6), -0.8, 3.3, Z(-5.6), Z(-5.2), gran);
   B(X(-2.8), X(2.8), 3.3, 3.45, Z(-5.8), Z(4.8), steel, { col: false }); B(X(-2.6), X(2.6), 3.45, 3.5, Z(-5.6), Z(4.6), glass, { col: false, cast: false });
   D.door1 = B(X(-2.2), X(2.2), TOP, 3.2, Z(4.0), Z(4.25), steel); D.door1Pos = v3(X(0), 1.2, Z(5.4));
+  B(X(-2.3), X(2.3), 3.0, 3.42, Z(3.85), Z(4.45), steel, { col: false }); // the shutter's roll housing under the canopy
   for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.05, 0.05), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 })); r.position.set(0, -1.25 + i * 0.6, 0.15); D.door1.add(r); } // the door's ribs, fixed to it
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.7), new THREE.MeshStandardMaterial({ map: canvasTex(256, 70, (c, w, h) => { c.fillStyle = '#8a3fa8'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.fillText('5  광화문역', w / 2, 48); }), emissive: 0xffffff, emissiveIntensity: 0.25 })); s.position.set(X(0), 3.85, Z(4.81)); G.world.add(s); }
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), new THREE.MeshStandardMaterial({ map: canvasTex(160, 100, (c, w, h) => { c.fillStyle = '#e8d020'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('민방위 대피소', w / 2, 40); c.font = '16px sans-serif'; c.fillText('CIVIL DEFENSE SHELTER', w / 2, 70); }) })); s.position.set(X(2.62), 2.2, Z(2)); s.rotation.y = Math.PI / 2; G.world.add(s); }
@@ -54,6 +55,7 @@ function m10Shelter() {
   // ---- the second blast door and the shelter hall: 24 m across, 22 m deep, columns in two rows ----
   const h0 = c1, h1 = c1 - 22; D.h0 = h0; D.h1 = h1;
   D.door2 = B(X(-3), X(3), D.FL, D.FL + 3.4, h0 - 0.1, h0 + 0.25, steel); D.door2Pos = v3(X(0), D.FL + 1.2, h0 + 1.6);
+  B(X(-3.1), X(3.1), D.FL + 3.2, D.FL + 3.6, h0 - 0.15, h0 + 0.45, steel, { col: false }); // its roll housing
   B(X(-3), X(3), D.FL + 3.4, D.CL, h0 - 0.1, h0 + 0.25, wallM);
   for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.05, 0.05), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 })); r.position.set(0, -1.28 + i * 0.5, 0.2); D.door2.add(r); }
   B(X(-12), X(12), D.FL - 0.5, D.FL, h1, h0, floorM, { cast: false }); B(X(-12.4), X(12.4), D.CL, D.CL + 0.4, h1 - 0.4, h0 + 0.3, ceilM, { col: false, cast: false });

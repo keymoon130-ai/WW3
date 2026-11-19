@@ -11841,6 +11841,7 @@ function m10Shelter() {
   B(X(-2.6), X(-2.2), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(2.2), X(2.6), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(-2.6), X(2.6), -0.8, 3.3, Z(-5.6), Z(-5.2), gran);
   B(X(-2.8), X(2.8), 3.3, 3.45, Z(-5.8), Z(4.8), steel, { col: false }); B(X(-2.6), X(2.6), 3.45, 3.5, Z(-5.6), Z(4.6), glass, { col: false, cast: false });
   D.door1 = B(X(-2.2), X(2.2), TOP, 3.2, Z(4.0), Z(4.25), steel); D.door1Pos = v3(X(0), 1.2, Z(5.4));
+  B(X(-2.3), X(2.3), 3.0, 3.42, Z(3.85), Z(4.45), steel, { col: false }); // the shutter's roll housing under the canopy
   for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.05, 0.05), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 })); r.position.set(0, -1.25 + i * 0.6, 0.15); D.door1.add(r); } // the door's ribs, fixed to it
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.7), new THREE.MeshStandardMaterial({ map: canvasTex(256, 70, (c, w, h) => { c.fillStyle = '#8a3fa8'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.fillText('5  광화문역', w / 2, 48); }), emissive: 0xffffff, emissiveIntensity: 0.25 })); s.position.set(X(0), 3.85, Z(4.81)); G.world.add(s); }
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), new THREE.MeshStandardMaterial({ map: canvasTex(160, 100, (c, w, h) => { c.fillStyle = '#e8d020'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('민방위 대피소', w / 2, 40); c.font = '16px sans-serif'; c.fillText('CIVIL DEFENSE SHELTER', w / 2, 70); }) })); s.position.set(X(2.62), 2.2, Z(2)); s.rotation.y = Math.PI / 2; G.world.add(s); }
@@ -11875,6 +11876,7 @@ function m10Shelter() {
   // ---- the second blast door and the shelter hall: 24 m across, 22 m deep, columns in two rows ----
   const h0 = c1, h1 = c1 - 22; D.h0 = h0; D.h1 = h1;
   D.door2 = B(X(-3), X(3), D.FL, D.FL + 3.4, h0 - 0.1, h0 + 0.25, steel); D.door2Pos = v3(X(0), D.FL + 1.2, h0 + 1.6);
+  B(X(-3.1), X(3.1), D.FL + 3.2, D.FL + 3.6, h0 - 0.15, h0 + 0.45, steel, { col: false }); // its roll housing
   B(X(-3), X(3), D.FL + 3.4, D.CL, h0 - 0.1, h0 + 0.25, wallM);
   for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.05, 0.05), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 })); r.position.set(0, -1.28 + i * 0.5, 0.2); D.door2.add(r); }
   B(X(-12), X(12), D.FL - 0.5, D.FL, h1, h0, floorM, { cast: false }); B(X(-12.4), X(12.4), D.CL, D.CL + 0.4, h1 - 0.4, h0 + 0.3, ceilM, { col: false, cast: false });
@@ -12092,7 +12094,7 @@ defMission({
         // the street door
         await S.reach(D.door1Pos, 4, '광화문역 대피소로');
         await S.use(D.door1Pos, '방폭문 열기');
-        { const d = D.door1, y0 = d.position.y; SFX.metal(D.door1Pos); const k = G.colliders.indexOf(d.userData.col); if (k >= 0) G.colliders.splice(k, 1); await S.tween(2.6, (t) => { d.position.y = y0 + t * 3.1; }); }
+        { const d = D.door1, y0 = d.position.y; SFX.metal(D.door1Pos); const k = G.colliders.indexOf(d.userData.col); if (k >= 0) G.colliders.splice(k, 1); const h = 3.2 - 0.3; await S.tween(2.6, (t) => { const s = Math.max(0.04, 1 - t); d.scale.y = s; d.position.y = 3.2 - h * s / 2; }); }
         await S.say('한지운 하사', '내려간다. 발밑 조심해.', { dur: 2 });
         await S.reach(D.landing, 2.5, '계단 아래로');
         await S.reach(D.stairFoot, 2.5, '계단 아래로');
@@ -12100,7 +12102,7 @@ defMission({
         S.sayBg('윤하린 중사', '안에서… 아이 우는 소리 들립니다.', { dur: 2.6 });
         await S.use(D.door2Pos, '대피소 방폭문 열기');
         // the hall: a moment of nothing, then they see the uniforms
-        { const d = D.door2, y0 = d.position.y; SFX.metal(D.door2Pos); const k = G.colliders.indexOf(d.userData.col); if (k >= 0) G.colliders.splice(k, 1); await S.tween(2.4, (t) => { d.position.y = y0 + t * 3.3; }); }
+        { const d = D.door2, y0 = d.position.y; SFX.metal(D.door2Pos); const k = G.colliders.indexOf(d.userData.col); if (k >= 0) G.colliders.splice(k, 1); const top = y0 + 1.7; await S.tween(2.4, (t) => { const s = Math.max(0.04, 1 - t); d.scale.y = s; d.position.y = top - 3.4 * s / 2; }); }
         await S.say('박도현 중위', '대한민국 국군입니다! 서울… 되찾았습니다!', { dur: 2.8 });
         await S.wait(0.6);
         SFX.cheer(D.door2Pos, 5); S.later(1.5, () => SFX.cheer(D.door2Pos, 5));
@@ -12113,7 +12115,7 @@ defMission({
           const order = [...D.people].sort((a, b) => b.p.z - a.p.z);
           order.forEach((o, i) => S.later(2.2 + i * 0.42, () => { o.done = true; const p = o.m.root.position; G.world.remove(o.m.root); const lane = ((i % 3) - 1) * 1.25;
             const a = civ(p.x, p.z, { goTo: [route[0].x + lane, route[0].z], speed: 3.8, y: D.FL }); a.yaw = o.m.root.rotation.y; let k = 0;
-            S.every(0.2, () => { if (!a.alive) return true; if (a.goTo && Math.hypot(a.goTo.x - a.pos.x, a.goTo.z - a.pos.z) > 1.0) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(lane, 0, 0)); else { const q = v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); return true; } }); })); }
+            S.every(0.2, () => { if (!a.alive) return true; if (a.goTo && Math.hypot(a.goTo.x - a.pos.x, a.goTo.z - a.pos.z) > 1.0) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(lane, 0, 0)); else { const c = G.m10Pole, q = c ? c.clone().add(v3(rand(-14, 14), 0, rand(6, 22))) : v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); a.m10Out = true; return true; } }); })); }
         await S.wait(3);
         await S.say('한지운 하사', '천천히! 다 같이 나갈 수 있습니다!', { dur: 2.4 });
         await S.say('윤하린 중사', '소대장님, 통로 옆 기념관에 태극기가 그대로 있답니다. 역무원들이 점령 내내 숨겨 놨다고.', { dur: 3.8 });
@@ -12122,7 +12124,7 @@ defMission({
         await S.use(D.casePos, '태극기 꺼내기'); D.caseFlag.visible = false; SFX.ui(); toast('태극기를 들었다');
         await S.say('박도현 중위', '광화문 앞 게양대다. 네 손으로 올려.', { dur: 2.6 });
         // people follow him up the plaza and gather round the pole
-        for (const a of G.actors) if (a.alive && a.team === 'civ') { const q = F.poleBase.clone().add(v3(rand(-14, 14), 0, rand(6, 22))); a.goTo = q; a.speed = rand(1.2, 1.8); }
+        G.m10Pole = F.poleBase; for (const a of G.actors) if (a.alive && a.team === 'civ' && a.pos.y > -1 && a.m10Out) { const q = F.poleBase.clone().add(v3(rand(-14, 14), 0, rand(6, 22))); a.goTo = q; a.o.speed = rand(1.2, 1.8); } // those still on the stairs come straight on to the pole when they surface
         await S.reach(F.poleBase, 3, '광화문 앞 국기게양대로');
         await S.use(v3(F.poleBase.x, 1.4, F.poleBase.z), '태극기 매달기');
         F.flag.visible = true; SFX.ui(); S.music('sad');
