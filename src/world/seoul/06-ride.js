@@ -289,7 +289,7 @@ async function hgFlight(S, o = {}) {
       for (const v of G.colV || []) if (v.alive) { const tq = -(G.colStop + v.rank * 18 + 2); if (v.q < tq) hgColPlace(v, tq); }
       const H = G.m11H; if (H) { const al = (G.colV || []).filter((v) => v.alive); const front = al.length ? Math.max(...al.map((v) => v.q)) : -G.colStop; H.q = front - 55; G.colFront = -front; G.heliT.z = G.colFront + 55; }
       toast('다음 구간으로 이동'); };
-    if (o.test) addEventListener('keydown', skip); G.onLeave = () => { removeEventListener('keydown', skip); hgWarn(null); clearTimeout(HGB.slow); G.timeScale = 1; };
+    G.hgSkip = skip; if (o.test) addEventListener('keydown', skip); G.onLeave = () => { removeEventListener('keydown', skip); hgWarn(null); clearTimeout(HGB.slow); G.timeScale = 1; };
     hgBeatA(S); hgBeatB(S); hgBeatC(S); hgBeatD(S); hgBeatE(S); hgBeatF(S); hgBeatG(S); hgBeatH(S); hgWarSky(S);
     if (o.test) S.hint('테스트용 · <kbd>T</kbd> 현재 구간 건너뛰기 · <kbd>H</kbd> 기총 카메라', 8); else S.hint('<kbd>H</kbd> 기총 카메라 · 마우스로 조준, <kbd>좌클릭</kbd> 사격', 6);
     S.fade(0, 1.5);

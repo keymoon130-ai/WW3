@@ -88,3 +88,14 @@ function m10Gwanghwamun() {
     G.updaters.push(() => { if (!F.flag.visible) return; const a = fg.attributes.position, k = Math.min(1, (F.flag.position.y - 1.6) / 6); for (let i = 0; i < a.count; i++) { const bx = base[i * 3]; a.setZ(i, Math.sin(bx * 2.2 - G.time * 4.5) * (0.04 + 0.12 * k) * bx); a.setY(i, base[i * 3 + 1] - (1 - k) * 0.35 * bx * bx); } a.needsUpdate = true; fg.computeVertexNormals(); }); }
   return F;
 }
+/* 「북쪽으로」 only, for the developer: Ctrl + O + P turns an admin mode on or off (nothing on screen says it exists).
+   In admin mode T jumps ahead: during the ride it finishes the current stretch (as the sample's T does); on foot it puts you on the current objective. */
+addEventListener('keydown', (e) => {
+  if (!G.mission || G.mission.id !== 'm10') return;
+  if (e.ctrlKey && (e.code === 'KeyO' || e.code === 'KeyP')) { e.preventDefault(); if ((e.code === 'KeyP' && K.KeyO) || (e.code === 'KeyO' && K.KeyP)) { G.admin = !G.admin; toast(G.admin ? '관리자 모드' : '관리자 모드 해제'); } return; }
+  if (!G.admin || e.code !== 'KeyT' || e.repeat || G.mode !== 'play' || G.paused || G.cut) return;
+  if (P.ride && G.hgSkip) { G.hgSkip(e); return; }
+  const o = G.objPos; if (!o) return; for (const a of G.actors) if (a.alive && a.team === 'enemy') a.hurt(99999, PT);
+  P.pos.set(o.x + 0.4, floorAt(o.x + 0.4, o.z + 0.4, (o.y ?? 0) + 2), o.z + 0.4); P.vel.set(0, 0, 0); toast('다음 지점으로 이동');
+}, true);
+
