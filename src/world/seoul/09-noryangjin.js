@@ -14,8 +14,11 @@ function hgNoryangjin() {
   const stepM = hgMat('nyStep', { color: 0x9c968c, map: 'concrete', rough: 0.85 }), nose = hgMat('nyNose', { color: 0xc8a030, rough: 0.6 }), dark = hgMat('nyDark', { color: 0x1d2226, rough: 0.6 });
   const lamp = basicMat('nyLamp', 0xfff4e0);
   // a box from corner to corner: static (merged) unless dyn, with a collider unless col === false
-  const B = (x0, x1, y0, y1, z0, z1, m, o = {}) => { const me = hgMesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, { dyn: o.dyn, cast: o.cast });
-    if (o.col !== false) me.userData.col = addCollider(Math.min(x0, x1), y0, Math.min(z0, z1), Math.max(x0, x1), y1, Math.max(z0, z1), {}); return me; };
+  // while NYG is set, pieces go into that group (a stair that can come down whole) and their colliders are kept with it
+  let NYG = null;
+  const B = (x0, x1, y0, y1, z0, z1, m, o = {}) => { const me = hgMesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, { dyn: o.dyn || !!NYG, cast: o.cast });
+    if (NYG) NYG.g.attach(me);
+    if (o.col !== false) { me.userData.col = addCollider(Math.min(x0, x1), y0, Math.min(z0, z1), Math.max(x0, x1), y1, Math.max(z0, z1), {}); if (NYG) NYG.cols.push(me.userData.col); } return me; };
   const { z0, z1, xE, xW, lobW, FY, RY } = NY, y0r = HR.deck;
 
   // ---- the lobby: a double-height hall, the door facing the street, one long stair up the north wall ----
@@ -66,13 +69,17 @@ function hgNoryangjin() {
   for (const [x] of NY.platStairs) signBoard(x, RY - 2.2, z1 - 0.6, x < -170 ? '6  경부선 · 장항선' : x < -150 ? '4·5  1호선 하행' : x < -135 ? '2·3  1호선 상행' : '1  1호선 급행', { w: 3.2, bg: '#1d4f8a', size: 44, ry: Math.PI });
 
   // ---- the stairs down from the concourse's south side onto the platforms (the last one onto the low platform) ----
+  NY.stairs = [];
   for (const [x, top] of NY.platStairs) { const ytop = y0r + top, n = Math.round((FY - ytop) / 0.172), run = 0.3, rise = (FY - ytop) / n, w = x < -170 ? 2.6 : 2.8;
+    // the two stairs onto the inner island platforms hang from the part of the concourse that can fall: built as one piece each, pivoting at the foot
+    if (x > -150 && x < -120) { const zF = z1 + 0.4 + n * run; NYG = { g: new THREE.Group(), cols: [], x, h: FY - ytop, L: zF - z1 }; NYG.g.position.set(x, ytop, zF); G.world.add(NYG.g); }
     for (let i = 0; i < n; i++) { const za = z1 + 0.4 + i * run, h = FY - (i + 1) * rise; B(x - w / 2, x + w / 2, ytop, h + rise, za, za + run, stepM, { cast: false }); B(x - w / 2, x + w / 2, h + rise - 0.004, h + rise + 0.008, za, za + 0.05, nose, { col: false, cast: false }); }
     B(x - w / 2 - 0.3, x + w / 2 + 0.3, FY - 0.5, FY, z1 - 0.2, z1 + 0.45, floorM, { cast: false }); // the landing through the wall opening, so the floor runs straight onto the top step
     const zEnd = z1 + 0.4 + n * run;
     for (const s of [-1, 1]) { B(x + s * (w / 2 + 0.05) - 0.04, x + s * (w / 2 + 0.05) + 0.04, ytop, ytop + 1, zEnd - 0.1, zEnd, steel, { col: false });
       for (let i = 0; i < n; i += 4) { const za = z1 + 0.4 + i * run, h = FY - i * rise; B(x + s * (w / 2 + 0.05) - 0.06, x + s * (w / 2 + 0.05) + 0.06, h - 4 * rise, h + 1.0, za, za + 4 * run, glass, { cast: false }); } }
-    B(x - w / 2 - 0.3, x + w / 2 + 0.3, FY + 2.6, FY + 2.75, z1 + 0.4, zEnd, hgMat('nyStairRoof', { color: 0x7a8288, rough: 0.5, metal: 0.4 }), { col: false }); }
+    B(x - w / 2 - 0.3, x + w / 2 + 0.3, FY + 2.6, FY + 2.75, z1 + 0.4, zEnd, hgMat('nyStairRoof', { color: 0x7a8288, rough: 0.5, metal: 0.4 }), { col: false });
+    if (NYG) { NY.stairs.push(NYG); NYG = null; } }
 
   // ---- outside: the green-glazed stair tower on the street front with the name on top, the exterior stair, the forecourt furniture ----
   { const tx0 = xE + 0.4, tx1 = xE + 7, tz0 = 360.5, tz1 = 368.5;

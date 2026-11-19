@@ -1,14 +1,18 @@
 /* ---------------- HUD ---------------- */
 const hud = { xh: $('xh'), mag: $('mag'), res: $('res'), wname: $('wname'), nades: $('nades'), obj: $('objText'), objBox: $('obj'), subs: $('subs'), prompt: $('prompt'), marker: $('marker'), vig: $('dmgvig'), mm: $('minimap'), ally: $('allyname'), kf: $('killfeed'), timer: $('timer'), hitm: $('hitm'), hint: $('hint'), cp: $('cpmsg'), dirs: $('dmgdirs'), binoc: $('binoc'), nvg: $('nvg'), ring: $('ringfx'), white: $('flash') };
 const mmx = hud.mm.getContext('2d');
-let subQ = null;
+/* two subtitle lanes: the radio line above, what someone near you says below. A new line replaces only the line in its own lane,
+   so a radio call is never cut off by a squadmate talking over it (and the other way round) */
+const SUBT = { radio: null, say: null };
 function subtitle(who, text, dur = 3, radio = false) { G.lastSubT = G.time;
   if (radio) SFX.radio();
-  hud.subs.innerHTML = '';
+  const kind = radio ? 'radio' : 'say'; let slot = hud.subs.querySelector('.slot-' + kind);
+  if (!slot) { slot = document.createElement('div'); slot.className = 'slot slot-' + kind; if (radio) hud.subs.prepend(slot); else hud.subs.appendChild(slot); }
+  slot.innerHTML = '';
   const d = document.createElement('div'); d.className = 'sub' + (radio ? ' radio' : '');
   if (who) { const b = document.createElement('b'); b.textContent = who; d.appendChild(b); }
   const s = document.createElement('span'); s.textContent = text; d.appendChild(s);
-  hud.subs.appendChild(d); clearTimeout(subQ); subQ = setTimeout(() => { if (d.parentNode) d.classList.add('out'); }, dur * 1000 / Math.max(G.timeScale, 0.3));
+  slot.appendChild(d); clearTimeout(SUBT[kind]); SUBT[kind] = setTimeout(() => { if (d.parentNode) d.classList.add('out'); }, dur * 1000 / Math.max(G.timeScale, 0.3));
 }
 function setObjective(text) { hud.obj.textContent = text || ''; hud.objBox.hidden = !text; if (text) { hud.objBox.classList.remove('flash'); void hud.objBox.offsetWidth; hud.objBox.classList.add('flash'); SFX.objective(); } }
 let hintT = null;

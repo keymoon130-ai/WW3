@@ -154,7 +154,7 @@ function m7StationStrike(S) {
       if (!b.m) { b.m = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.2, 8), mat('bombM', { color: 0x4a4e44, rough: 0.6 })); G.world.add(b.m); } b.m.position.copy(b.p); b.m.quaternion.setFromUnitVectors(v3(0, 1, 0), b.v.clone().normalize());
       const gy = Math.max(G.groundAt(b.p.x, b.p.z), (G.colliders.find((c) => b.p.x > c.min.x && b.p.x < c.max.x && b.p.z > c.min.z && b.p.z < c.max.z) || { max: { y: 0 } }).max.y);
       if (b.p.y <= gy + 0.5) { G.world.remove(b.m); bombs.splice(i, 1); explode(b.p.clone(), { noPlayer: true, size: 7, dmg: 0, vdmg: 0, radius: 1 }); addEmitter(b.p.clone().add(v3(0, 3, 0)), 'smoke', 4, 2, 40); G.shake += 0.6;
-        if (!hit) { hit = true; hgStationFall(false); } } }
+        if (!hit) { hit = true; hgStationFall(false); S.later(2.6, () => S.say('한지운 하사', '이 개새끼들… 어디까지 부수려는 거야?', { dur: 3 })); } } }
     if (t > 16) { for (const o of jets) { G.world.remove(o.j.root); o.voice.stop(); } return true; } });
 }
 /* the engineers on 한강대교: mining the northbound deck and wiring it off while we cross on the southbound one, then closing the

@@ -24,7 +24,7 @@ function m7NyRun(S) {
   // the squad goes first: 한지운 leads, the other two on his heels; they hold at the door and the stair foot for the rookie, never on the concourse
   const lane = { han: 0, lee: -1.4, yoon: 1.4 };
   for (const k of ['han', 'lee', 'yoon']) { const a = S.sq[k]; if (!a) continue; const o = lane[k];
-    a.follow = null; a.goal = null; a.hold = false; a.speed = 5.6; a.noShoot = true;
+    a.follow = null; a.goal = null; a.hold = false; a.speed = 7.2; a.noShoot = true; a.wantCrouch = false;
     const near = (x, z, r) => () => Math.hypot(P.pos.x - x, P.pos.z - z) < r;
     a.route = { i: 0, pts: [
       { x: -36, z: 355 + o, run: true }, { x: -50, z: 355 + o, run: true, until: near(-50, 355, 12) },
@@ -37,20 +37,26 @@ function m7NyRun(S) {
   S.every(0.3, () => { if (!R.live) return true; for (const k of ['han', 'lee', 'yoon']) { const a = S.sq[k]; if (a && a.alive && a.board && G.trainIn) { a.remove(); S.sq[k] = null; } } });
   R.stage = (n) => {
     R.st = n;
-    if (n === 1) { // the front of the building behind him
+    if (n === 1) { // the front of the building behind him — once the squad is in too
+      const t1 = G.time, sq = () => ['han', 'lee', 'yoon'].map((k) => S.sq[k]).filter((a) => a && a.alive);
+      S.until(() => sq().every((a) => a.pos.x < -48.5) || G.time - t1 > 7).then(() => { for (const a of sq()) if (a.pos.x > -48.5) { if (hiddenFromView(a.pos)) a.pos.set(-50.5, 0, 355 + rand(-2, 2)); } R.doorDown(); });
+      return; }
+    if (n === 2) { S.later(0.5, () => { G.shake += 0.3; SFX.crackle(v3(-66, NY.FY, 352)); }); }
+    if (n === 3) { // the roof goes, bay by bay, from the street end — about half of the concourse, as far as the first track pair
+      R.t0 = G.time + 2.5; S.later(0.6, () => S.say('한지운 하사', '지붕 내려앉는다! 뛰어! 멈추지 마!', { dur: 2.2 })); SFX.crackle(v3(-60, NY.FY + 4, 357));
+      G.updaters.push(() => { if (!R.live || G.mode !== 'play') return true; if (G.time < R.t0) return; R.front = Math.max(-104, -58 - 4.0 * (G.time - R.t0));
+        for (const r of NY.roof) { if (r.userData.fallen || r.position.x < -100) continue; const x = r.position.x; if (x > R.front + 1.5) m7NyDropRoof(r, R); else if (!r.userData.warned && x > R.front - 7) { r.userData.warned = true; SFX.crackle(r.position); for (let i = 0; i < 8; i++) particle({ x: x + rand(-3, 3), y: NY.RY - 0.2, z: rand(NY.z0, NY.z1), vy: -1, life: 1.6, size: 0.1, size1: 0.07, alpha: 0.9, color: [0.8, 0.78, 0.74], grav: 9.8 }); } }
+        if (R.front > -104 && P.alive && P.pos.y > NY.FY - 1.2 && P.pos.x > R.front + 1.2 && P.pos.z > NY.z0 && P.pos.z < NY.z1) failMission('무너지는 역사 지붕에 깔렸다 — 멈추지 말고 뛰어야 한다');
+        if (R.front <= -104) { R.shakeOn = true; return true; } });
+      // past the fallen half the building keeps groaning: plaster and dust out of the ceiling, the floor shuddering
+      S.every(1.3, () => { if (!R.live) return true; if (!R.shakeOn) return; const p = v3(Math.min(-106, P.pos.x - rand(4, 14)), NY.RY - 0.3, rand(NY.z0 + 1, NY.z1 - 1)); for (let i = 0; i < 6; i++) particle({ x: p.x + rand(-1, 1), y: p.y, z: p.z + rand(-1, 1), vy: -1, life: 1.8, size: 0.1, size1: 0.07, alpha: 0.9, color: [0.8, 0.78, 0.74], grav: 9.8 }); if (Math.random() < 0.4) { G.shake += 0.15; SFX.crackle(p); } });
+    }
+  };
+  R.doorDown = () => {
       explode(v3(-34, 0.8, 355), { noPlayer: true, size: 4.2, dmg: 0, vdmg: 0, radius: 1 }); G.shake += 0.7; SFX.explosion(v3(-34, 1, 355), 1.3);
       S.later(0.35, () => { m7NyRubble(-45.6, -39.5, 349.5, 360.5, 3.4, R); FX.dust(v3(-44, 1.5, 355), 30, [0.7, 0.68, 0.62], 1.6); addEmitter(v3(-42, 1, 355), 'smoke', 1.4, 3, 20); });
       S.later(0.8, () => S.say('윤하린 중사', '입구 무너졌어! 위로, 위로!', { dur: 2 }));
       const fx = S.every(0.6, () => { if (R.st > 3 || !R.live) return true; if (P.pos.x < -40 && P.pos.x > -82) lobbyFx(); });
-    }
-    if (n === 2) { S.later(0.5, () => { G.shake += 0.3; SFX.crackle(v3(-66, NY.FY, 352)); }); }
-    if (n === 3) { // the roof goes, bay by bay, from the street end
-      R.t0 = G.time + 2.5; S.later(0.6, () => S.say('한지운 하사', '지붕 내려앉는다! 뛰어! 멈추지 마!', { dur: 2.2 })); SFX.crackle(v3(-60, NY.FY + 4, 357));
-      G.updaters.push(() => { if (!R.live || G.mode !== 'play') return true; if (G.time < R.t0) return; R.front = -58 - 4.0 * (G.time - R.t0);
-        for (const r of NY.roof) { if (r.userData.fallen) continue; const x = r.position.x; if (x > R.front + 1.5) m7NyDropRoof(r, R); else if (!r.userData.warned && x > R.front - 7) { r.userData.warned = true; SFX.crackle(r.position); for (let i = 0; i < 8; i++) particle({ x: x + rand(-3, 3), y: NY.RY - 0.2, z: rand(NY.z0, NY.z1), vy: -1, life: 1.6, size: 0.1, size1: 0.07, alpha: 0.9, color: [0.8, 0.78, 0.74], grav: 9.8 }); } }
-        if (P.alive && P.pos.y > NY.FY - 1.2 && P.pos.x > R.front + 1.2 && P.pos.z > NY.z0 && P.pos.z < NY.z1) failMission('무너지는 역사 지붕에 깔렸다 — 멈추지 말고 뛰어야 한다');
-        if (R.front < NY.xW - 6) return true; });
-    }
   };
   R.stop = () => { R.live = false; };
   return R;
@@ -80,15 +86,24 @@ function m7NyDropWall(w) {
   const out = w.position.z < (NY.z0 + NY.z1) / 2 ? -1 : 1; let vy = 0, vz = out * rand(0.5, 1.5);
   G.updaters.push((dt) => { vy -= 9.8 * dt; w.position.y += vy * dt; w.position.z += vz * dt; w.rotation.x += out * dt * 0.9; if (w.position.y < -2) { w.visible = false; return true; } });
 }
-/* after the train pulls out: the whole concourse over the tracks goes — floor bays, what is left of the roof, the walls — onto the rails */
+/* after the train pulls out: the middle of the concourse goes — over the first two track pairs (x -112 … -146) the floor bays, what is
+   left of their roof and the walls drop onto the rails, and the two stairs hanging from that stretch fold down onto their platforms.
+   The street end (its roof already in) and the west end over the low platform stay standing. */
 function m7NyFallAll() {
-  const pieces = [...NY.floor, ...NY.roof, ...NY.wall].filter((m) => m.position.x < -111 && m.visible).sort((a, b) => b.position.x - a.position.x);
+  const inSpan = (m) => m.position.x < -111 && m.position.x > -147;
+  const pieces = [...NY.floor, ...NY.roof, ...NY.wall].filter((m) => inSpan(m) && m.visible).sort((a, b) => b.position.x - a.position.x);
   pieces.forEach((m, i) => setGameTimeout(() => {
     if (m.userData.col) { const k = G.colliders.indexOf(m.userData.col); if (k >= 0) G.colliders.splice(k, 1); m.userData.col = null; }
     if (m.userData.restCol) { const k = G.colliders.indexOf(m.userData.restCol); if (k >= 0) G.colliders.splice(k, 1); }
-    let vy = -rand(0, 1), t = 0; const rx = rand(-0.4, 0.4), rz = rand(-0.25, 0.25), floorY = HR.deck + 0.6 + rand(0, 1.2);
-    G.updaters.push((dt) => { t += dt; vy -= 9.8 * dt; m.position.y += vy * dt; m.rotation.x += rx * dt; m.rotation.z += rz * dt;
+    let vy = -rand(0, 1); const rx = rand(-0.4, 0.4), rz = rand(-0.25, 0.25), floorY = HR.deck + 0.6 + rand(0, 1.2);
+    G.updaters.push((dt) => { vy -= 9.8 * dt; m.position.y += vy * dt; m.rotation.x += rx * dt; m.rotation.z += rz * dt;
       if (m.position.y <= floorY) { m.position.y = floorY; if (Math.random() < 0.5) { const p = m.position.clone(); FX.dust(p, 30, [0.7, 0.68, 0.64], 2.4); addEmitter(p, 'smoke', 2.6, 3, 30); } return true; } });
     if (i % 4 === 0) SFX.explosion(m.position, 0.9);
   }, 0.12 * Math.floor(i / 2)));
+  // the stairs: torn from the falling floor at the top, they swing down about their foot until the top lands on the platform
+  for (const s of NY.stairs || []) setGameTimeout(() => {
+    for (const c of s.cols) { const k = G.colliders.indexOf(c); if (k >= 0) G.colliders.splice(k, 1); }
+    const end = -Math.atan2(s.h - 0.6, s.L) * 0.92; let a = 0, w = 0;
+    G.updaters.push((dt) => { w += 2.2 * dt; a -= w * dt; if (a <= end) { a = end; s.g.rotation.x = a; const p = s.g.position.clone().add(v3(0, 0.5, -s.L * 0.9)); FX.dust(p, 26, [0.7, 0.68, 0.64], 2); SFX.explosion(p, 0.7); return true; } s.g.rotation.x = a; });
+  }, 0.4 + (s.x + 112) * -0.02);
 }

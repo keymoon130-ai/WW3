@@ -477,6 +477,7 @@ defMission({
         await S.reach(v3(-172.6, 1.2, 386), 2.6, '6번 승강장으로 내려가'); run.stage(4);
         if (!G.trainIn) { S.obj('열차 진입 대기'); S.say('한지운 하사', '들어온다, 들어와! 문 열리면 바로 타!', { dur: 2.2 }); await S.until(() => G.trainIn); }
         await S.reach(v3(-170.4, 1.2, 386.9), 1.8, '마지막 칸에 타');
+        { const t0 = G.time; await S.until(() => ['lee', 'yoon', 'han'].every((k) => !S.sq[k] || !S.sq[k].alive) || G.time - t0 > 6); } // the squad is aboard (they board as they reach the door)
         run.stop();
         for (const a of aliveEnemies()) a.remove();
         for (const v of G.vehicles) if (v.alive && v.team === 'enemy') { v.remove(); v.alive = false; }
@@ -491,7 +492,12 @@ defMission({
           S.later(0.4, () => { SFX.metal(v3(car.position.x, 2, car.position.z)); G.shake += 0.15; });
           S.later(2.2, () => m7NyFallAll());
           for (let i = 0; i < 10; i++) S.later(4 + i * 1.1, () => { const p = v3(rand(-500, 400), rand(0, 30), rand(-1900, -1100)); explode(p, { noPlayer: true, size: rand(3, 5), dmg: 0, vdmg: 0 }); addEmitter(p, 'smoke', 3, 2, 60); });
-          S.later(5, () => m7Formation({ from: v3(700, 0, -1350), to: v3(-1000, 0, -1450), alt: 170, n: 3, kind: 'V' }));
+          // the sky over the burning city is still theirs: formations crossing it the whole time, a transport or two low behind them, flak climbing at them
+          { let k = 0; const fly = () => { if (!G.cut) return; const z = rand(-1700, -1150), e2w = k++ % 2 === 0, alt = rand(150, 240);
+              m7Formation({ from: v3(e2w ? 1100 : -1200, 0, z), to: v3(e2w ? -1200 : 1100, 0, z + rand(-250, 250)), alt, n: pick([2, 3, 3, 4]), kind: pick(['V', 'E']) });
+              S.later(rand(4.5, 7), fly); };
+            S.later(2.5, fly);
+            S.every(0.7, () => { if (!G.cut) return true; const g = v3(rand(-700, 600), 2, rand(-1700, -1000)), top = g.clone().add(v3(rand(-150, 150), rand(400, 650), rand(-150, 150))); for (let i = 0; i < 4; i++) setGameTimeout(() => tracer(g.clone(), top.clone().add(v3(rand(-20, 20), rand(-20, 20), rand(-20, 20))), [1, 0.55, 0.25], 520), i * 0.09); }); }
           await S.wait(3.2);
           await S.say('리선우 병장', '…불타고 있슴다. 서울 전체가.', { dur: 3 });
           await S.say('서한준', '어머니… 저기 계신데.', { dur: 2.6 });
