@@ -121,37 +121,69 @@ function m11Roof(tag, pts, marked) { for (const [x0, z] of pts) { const x = RX(x
 /* ========== MISSION 11 「북쪽으로」 ========== */
 defMission({
   id: 'm10', act: '3막 · 반격', num: '미션 12', title: '북쪽으로',
-  dateText: '2032년 3월 28일 06:30', dateShort: '2032.03.28', place: '서울 · 한강대교 → 서울역 → 광화문', placeShort: '서울 탈환', who: '서한준 이병 · 제12국경수비대 3분대', whoShort: '서한준',
+  dateText: '2032년 3월 28일 06:30', dateShort: '2032.03.28', place: '서울 · 노량진역 → 한강대교 → 서울역 → 광화문', placeShort: '서울 탈환', who: '서한준 이병 · 제12국경수비대 3분대', whoShort: '서한준',
   env: { sky: [0x7b8ea4, 0xc0bcb0, 0xd0c4b0], glow: 0xffd2a0, glowDir: [0.7, 0.12, 0.3], fog: 0xbcbab4, fogD: 0.0011, hemi: [0xd4dae2, 0x5a5650, 0.95], sun: [0xfff0dc, 1.35], sunDir: [0.75, 0.55, 0.35], exposure: 1.0, viewDist: 900, battle: 0.5, flashes: 0.08, windSnd: 0.25 },
   loadout: { weapons: ['rifle', 'sniper', 'pistol'], nades: 4 },
   bounds: [-3600, -7400, 1400, 600],
-  build(S) { hgCity({ stationDown: true, gate: 'charred' }); },
+  build(S) { hgCity({ stationDown: true, gate: 'charred', nyDown: true }); G.m10F = m10Gwanghwamun(); },
   phases: [
-    /* the ride: 한강대교 → 한강대로 → 서울역 → 숭례문 → 시청 → 광화문, then down onto the plaza */
+    /* the ride: 노량진역 → 한강대교 → 한강대로 → 서울역 → 숭례문 → 시청 → 광화문, then down onto the plaza */
     {
-      setup(S) { S.player(-30, 120, 0); },
+      setup(S) { S.player(-30, 420, 0); },
       async run(S) {
-        await hgFlight(S, { story: true });
-        await S.radio('박도현 중위', '광장 확보! 독수리 2-1, 내려 줘!', { dur: 2.4 });
+        G.menMul = 1.8; // their infantry is everywhere
+        m10RadioNet(S); m10Retakes(S); m10CAS(S);
+        S.later(9, () => S.sayBg('한지운 하사', '노량진역… 저기서 마지막 열차 탔었지. 반은 아직 저렇게 주저앉아 있네.', { radio: true, dur: 3.4 }));
+        await hgFlight(S, { story: true, z0: 390, gun: 'm134' });
+        G.menMul = 1;
+        await S.radio('박도현 중위', '광장 확보! 독수리 2-1, 내려 줘! 분대, 하차!', { dur: 2.6 });
         G.hitMul = 1;
-        const T = RT.total, LQ = HQ0 + T - 300, land = rtAt(T - 300, -30), Y = land.yaw;
+        const T = RT.total, LQ = HQ0 + T - 300, land = rtAt(T - 300, -30), Y = land.yaw, F = G.m10F;
+        // the column halts on the avenue; the K808 nearest the plaza drops its ramp and the squad gets down
+        const apc = (G.colV || []).filter((v) => v.alive && v.type !== 'tank').sort((a, b) => b.q - a.q)[0];
         await S.cut(async () => {
           for (const a of aliveEnemies()) a.remove(); for (const v of G.vehicles) if (v.alive && v.team === 'enemy') { v.remove(); v.alive = false; }
+          for (const v of G.colV || []) { v.stopped = true; v.speed = 0; }
           G.heliT.follow = false; G.heliT.z = -LQ; G.heliT.x = -30; G.heliT.land = true; G.heliT.alt = 24;
           const H = G.m11H; H.q = LQ + 60; H.d = -30; H.pos.y = 26;
           const c0 = rtAt(T - 360, -75); await S.cam(v3(c0.x, 8, c0.z), v3(land.x, 10, land.z), 0); S.camFov(55);
+          // the squad comes down off the K808's rear: 박도현 first
+          const back = apc ? apc.pos.clone().add(v3(Math.sin(apc.yaw), 0, Math.cos(apc.yaw)).multiplyScalar(5.5)) : v3(land.x, 0, land.z);
+          squad(S, [['park', '박도현 중위'], ['lee', '리선우 병장'], ['yoon', '윤하린 중사'], ['han', '한지운 하사']].map(([key, name], i) => ({ key, name, x: back.x + (i - 1.5) * 1.3, z: back.z + rand(-0.5, 0.5) })));
           await S.tween(6, (k) => { G.heliT.alt = lerp(24, 2.4, k); });
-          P.ride = null; P.yawLim = null; S.take('km19'); G.extMuzzle = null; S.give('rifle');
+          P.ride = null; P.yawLim = null; S.take('m134'); S.take('km19'); G.extMuzzle = null; S.give('rifle');
           const pp = rtAt(T - 296, -24); S.player(pp.x, pp.z, Y);
-          const sq = (s, d) => rtAt(T - 300 + s, d);
-          squad(S, [['park', '박도현 중위', 2, -22], ['lee', '리선우 병장', -2, -19], ['yoon', '윤하린 중사', -3, -25], ['han', '한지운 하사', 3, -18]].map(([key, name, s, d]) => { const p = sq(s, d); return { key, name, x: p.x, z: p.z }; }));
-          const f = rtAt(T - 150, -52); const fp = flagPole(f.x, f.z, 12, 'kr'); const top = fp.position.y; fp.position.y = G.groundAt(f.x, f.z) + 1.6;
-          for (let i = 0; i < 18; i++) S.later(i * 0.4, () => { const a = rtAt(T - 260 + rand(-10, 10), pick([-1, 1]) * rand(24, 30)), b = rtAt(T - 160 + rand(-8, 8), -52 + rand(-8, 8)); civ(a.x, a.z, { goTo: [b.x, b.z], speed: 1.6 }); });
-          const cA = rtAt(T - 200, -20); await S.cam(v3(cA.x, 2, cA.z), v3(f.x, 6, f.z), 0);
-          S.music('sad');
-          await S.tween(7, (k) => { fp.position.y = lerp(G.groundAt(f.x, f.z) + 1.6, top, k); });
-          const cB = rtAt(T - 215, -10); await S.cam(v3(cB.x, 4, cB.z), v3(f.x, 2, f.z), 4);
-          await S.say('서한준', '사람들이… 나옵니다.', { dur: 2.5 });
+        });
+        followMode(S, ['park', 'han', 'lee', 'yoon']);
+        await S.radio('박도현 중위', '광화문역에 시민들이 숨어 있다. 6주 동안 저 밑에서 버텼어. 우리가 연다.', { dur: 3.6 });
+        // the shelter: open the blast door, and they come up
+        await S.reach(F.doorPos, 4, '광화문역 대피소로');
+        await S.use(F.doorPos, '방폭문 열기');
+        { const g = F.exitG, d = F.door, y0 = d.position.y; SFX.metal(F.doorPos); const k = G.colliders.indexOf(F.doorCol); if (k >= 0) G.colliders.splice(k, 1);
+          S.tween(3, (t) => { d.position.y = y0 + t * 2.9; });
+          for (let i = 0; i < 34; i++) S.later(1.2 + i * 0.35, () => { const p = g.localToWorld(v3(rand(-1.2, 1.2), 0, rand(0.5, 2.5))), q = rtAt(RT.V[4] + 690 + rand(90, 180), rand(-70, -30)); civ(p.x, p.z, { goTo: [q.x, q.z], speed: rand(1.1, 2.0) }); }); }
+        await S.wait(2);
+        await S.sayBg('시민', '국군이다… 국군이 왔어!', { dur: 2.4 }); await S.wait(2.6);
+        await S.say('한지운 하사', '다 나오세요. 이제 괜찮습니다.', { dur: 2.4 });
+        await S.say('윤하린 중사', '소대장님, 옆 기념관에 태극기가 그대로 있답니다. 역무원들이 점령 내내 숨겨 놨다고.', { dur: 3.8 });
+        await S.say('박도현 중위', '서한준. 네가 가져와.', { dur: 2.2 });
+        await S.reach(F.casePos, 3, '광화문역 기념관에서 태극기 꺼내기');
+        await S.use(F.casePos, '태극기 꺼내기'); F.caseFlag.visible = false; SFX.ui(); toast('태극기를 들었다');
+        await S.say('박도현 중위', '광화문 앞 게양대다. 네 손으로 올려.', { dur: 2.6 });
+        // people follow him up the plaza and gather round the pole
+        for (const a of G.actors) if (a.alive && a.team === 'civ') { const q = F.poleBase.clone().add(v3(rand(-14, 14), 0, rand(6, 22))); a.goTo = q; a.speed = rand(1.2, 1.8); }
+        await S.reach(F.poleBase, 3, '광화문 앞 국기게양대로');
+        await S.use(v3(F.poleBase.x, 1.4, F.poleBase.z), '태극기 매달기');
+        F.flag.visible = true; SFX.ui(); S.music('sad');
+        for (const k of ['park', 'han', 'lee', 'yoon']) { const a = S.sq[k]; if (a) { a.follow = null; a.goal = F.poleBase.clone().add(v3(rand(-5, 5), 0, rand(3, 6))); } }
+        // hold F: hand over hand, the flag climbs
+        S.obj('F를 누르고 있으면 태극기가 올라갑니다'); S.hint('<kbd>F</kbd> 를 누르고 있으세요 — 태극기 게양', 8);
+        { const top = 0.6 + F.poleH - 1.0; await S.until(() => { if (K.KeyF || G.testMode) { F.flag.position.y = Math.min(top, F.flag.position.y + 1.25 / 30); if (Math.random() < 0.08) SFX.click(); } return F.flag.position.y >= top; }); }
+        S.obj('');
+        await S.cut(async () => {
+          const f = F.poleBase, cA = rtAt(T - 140, -40); await S.cam(v3(cA.x, 1.8, cA.z), v3(f.x, 9, f.z), 0); S.camFov(52);
+          await S.cam(v3(cA.x, 1.6, cA.z).lerp(v3(f.x, 1.6, f.z), 0.4), v3(f.x, 13, f.z), 6);
+          await S.say('서한준', '…올라갔습니다.', { dur: 2.2 });
           await S.say('리선우 병장', '어마이도 어디메서 이 깃발 보고 계실 검다.', { dur: 3 });
           await S.say('한지운 하사', '서한준. 약속 기억하지? 작전 끝나면 노량진부터 간다. 분대 전원.', { dur: 3.4 });
           await S.say('서한준', '…예, 하사님.', { dur: 2 });

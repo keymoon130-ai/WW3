@@ -8,11 +8,14 @@ function subtitle(who, text, dur = 3, radio = false) { G.lastSubT = G.time;
   if (radio) SFX.radio();
   const kind = radio ? 'radio' : 'say'; let slot = hud.subs.querySelector('.slot-' + kind);
   if (!slot) { slot = document.createElement('div'); slot.className = 'slot slot-' + kind; if (radio) hud.subs.prepend(slot); else hud.subs.appendChild(slot); }
-  slot.innerHTML = '';
+  // speech replaces speech; radio calls stack (two at most): a long net call stays up while a short callout comes in under it
+  if (!radio) slot.innerHTML = ''; else { for (const o of [...slot.children]) if (o.firstChild && o.firstChild.classList.contains('out')) o.remove(); while (slot.children.length >= 2) slot.firstChild.remove(); }
   const d = document.createElement('div'); d.className = 'sub' + (radio ? ' radio' : '');
   if (who) { const b = document.createElement('b'); b.textContent = who; d.appendChild(b); }
   const s = document.createElement('span'); s.textContent = text; d.appendChild(s);
-  slot.appendChild(d); clearTimeout(SUBT[kind]); SUBT[kind] = setTimeout(() => { if (d.parentNode) d.classList.add('out'); }, dur * 1000 / Math.max(G.timeScale, 0.3));
+  const line = document.createElement('div'); line.appendChild(d); slot.appendChild(line);
+  const kill = () => { d.classList.add('out'); setTimeout(() => line.remove(), 600); };
+  if (radio) setTimeout(kill, dur * 1000 / Math.max(G.timeScale, 0.3)); else { clearTimeout(SUBT.say); SUBT.say = setTimeout(kill, dur * 1000 / Math.max(G.timeScale, 0.3)); }
 }
 function setObjective(text) { hud.obj.textContent = text || ''; hud.objBox.hidden = !text; if (text) { hud.objBox.classList.remove('flash'); void hud.objBox.offsetWidth; hud.objBox.classList.add('flash'); SFX.objective(); } }
 let hintT = null;

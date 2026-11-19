@@ -22,7 +22,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyF') interact();
   if (e.code === 'KeyC') P.crouchOn = !P.crouchOn;
   if (e.code === 'KeyN' && G.nvgAvail) { G.nvg = !G.nvg; SFX.click(); }
-  if (e.code === 'KeyH' && G.gunCamPod && P.ride && curId() === 'km19') { G.gunCam = !G.gunCam; SFX.click(); }
+  if (e.code === 'KeyH' && G.gunCamPod && P.ride && ['km19', 'm134'].includes(curId())) { G.gunCam = !G.gunCam; SFX.click(); }
   if (e.code.startsWith('Digit')) { const i = +e.code.slice(5) - 1; if (i >= 0 && i < P.weapons.length) switchTo(i); }
   if (e.code === 'KeyQ' || e.code === 'KeyX') { if (P.weapons.length > 1) switchTo((P.cur + 1) % P.weapons.length); }
 });
@@ -113,7 +113,7 @@ function updatePlayer(dt) {
   const sh = Math.min(G.shake, 1.5); G.shake = Math.max(0, G.shake - dt * 1.8);
   camera.position.set(P.pos.x + _r.x * bx + rand(-1, 1) * sh * 0.06, P.pos.y + eyeH + by + rand(-1, 1) * sh * 0.06, P.pos.z + _r.z * bx);
   // the gun camera (H): look from just ahead of the K-M19's muzzle instead of from the seat
-  { const on = !!(G.gunCam && G.gunCamPod && P.ride && curId() === 'km19' && !G.cut); if (!on && G.gunCam && (!P.ride || curId() !== 'km19')) G.gunCam = false;
+  { const on = !!(G.gunCam && G.gunCamPod && P.ride && ['km19', 'm134'].includes(curId()) && !G.cut); if (!on && G.gunCam && (!P.ride || curId() !== 'km19')) G.gunCam = false;
     if (on) { G.gunCamPod.updateMatrixWorld(); G.gunCamPod.localToWorld(camera.position.set(0, -0.32, -1.7)); camera.position.x += rand(-1, 1) * sh * 0.03; camera.position.y += rand(-1, 1) * sh * 0.03; }
     if (G.gunCamCockpit) G.gunCamCockpit.visible = !on; document.body.classList.toggle('guncam', on); }
   P.punchP = damp(P.punchP, 0, 12, dt); P.punchY = damp(P.punchY, 0, 12, dt);

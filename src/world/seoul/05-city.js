@@ -4,6 +4,7 @@ function hgCity(o = {}) {
   hgRiver(); hgYeouido(); hgBridge(); hgAvenue(); hgBlocks(); hgYongsan(); hgRoute(); hgNoryangjin(); hgSeoulStation(); hgSungnyemun(); hgCityHall(); hgGwanghwamun(); hg63(o.tower63 || 'charred');
   if (o.war !== false) hgWar();
   if (o.stationDown) hgStationFall(true);
+  if (o.nyDown) hgNoryangjinRuin();
   if (o.gate) hgGateFire(o.gate);
   hgRealism();
 }

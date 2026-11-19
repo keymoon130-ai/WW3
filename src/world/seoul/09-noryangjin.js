@@ -106,3 +106,17 @@ function hgNoryangjin() {
 }
 function m7wallOpen(gaps, a, b) { return gaps.some((g) => g + 1.7 > a && g - 1.7 < b); }
 function m7wallSplit(gaps, a, b) { let segs = [[a, b]]; for (const g of gaps) { const n = []; for (const [s, e] of segs) { if (g + 1.7 <= s || g - 1.7 >= e) n.push([s, e]); else { if (g - 1.7 > s) n.push([s, g - 1.7]); if (g + 1.7 < e) n.push([g + 1.7, e]); } } segs = n; } return segs.filter(([s, e]) => e - s > 0.05); }
+/* 노량진역 as 「남쪽으로」 left it, six weeks on: the roof at the street end lying on the concourse floor, the middle of the concourse
+   down on the first two track pairs with its stairs folded onto their platforms, the west end over the low platform still standing */
+function hgNoryangjinRuin() {
+  const unc = (m) => { if (m.userData.col) { const k = G.colliders.indexOf(m.userData.col); if (k >= 0) G.colliders.splice(k, 1); m.userData.col = null; } };
+  for (const r of NY.roof) { const x = r.position.x;
+    if (x > -104) { r.position.y = NY.FY + 0.6; r.rotation.set(rand(-0.06, 0.06), 0, rand(-0.04, 0.04)); for (const l of r.children) l.visible = false; addCollider(x - 3, NY.FY, NY.z0, x + 3, NY.FY + 1.6, NY.z1, {}); }
+    else if (x < -111 && x > -147) { r.position.y = HR.deck + 1.6 + rand(0, 1); r.rotation.set(rand(-0.3, 0.3), 0, rand(-0.2, 0.2)); for (const l of r.children) l.visible = false; } }
+  for (const w of NY.wall) { const x = w.position.x; if (x > -104 || (x < -111 && x > -147)) { unc(w); w.visible = false; } }
+  for (const f of NY.floor) { const x = f.position.x; if (x < -111 && x > -147) { unc(f); f.position.y = HR.deck + 0.8 + rand(0, 0.8); f.rotation.set(rand(-0.25, 0.25), 0, rand(-0.15, 0.15)); } }
+  for (const s of NY.stairs || []) { for (const c of s.cols) { const k = G.colliders.indexOf(c); if (k >= 0) G.colliders.splice(k, 1); } s.g.rotation.x = -Math.atan2(s.h - 0.6, s.L) * 0.92; }
+  // rubble along the fallen stretch, and the scorched forecourt door
+  const rub = mat('nyRub', { color: 0x9c958a, rough: 1 });
+  for (let i = 0; i < 40; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(rand(0.4, 1.8), rand(0.3, 0.8), rand(0.4, 1.4)), rub); b.position.set(rand(-146, -112), HR.deck + rand(0.4, 1.4), rand(NY.z0 - 2, NY.z1 + 2)); b.rotation.set(rand(-0.6, 0.6), rand(0, TAU), rand(-0.6, 0.6)); b.castShadow = true; G.world.add(b); }
+}

@@ -311,7 +311,7 @@ function m7RadioNet(S, items) {
   S.every(0.5, () => { if (G.mode !== 'play') return; if (G.time < R.next || G.cut) return;
     R.q = R.q.filter((it) => !(it.gone && it.gone()));
     let it = R.q.find((x) => x.when && x.when()); if (!it) it = R.q.find((x) => !x.when); if (!it) return;
-    R.q.splice(R.q.indexOf(it), 1); const [who, txt] = M7RADIO[it.id]; const d = m7Dur(txt); S.radio(who, txt, { dur: d }); R.next = G.time + d + rand(20, 30); });
+    R.q.splice(R.q.indexOf(it), 1); const [who, txt] = (it.tab || M7RADIO)[it.id]; const d = m7Dur(txt); S.radio(who, txt, { dur: d }); R.next = G.time + d + rand(20, 30); });
   return R;
 }
 const M7L = { K: -9.0, B: -12.0, E1: 9.0, E2: 12.0 };

@@ -54,6 +54,7 @@ missions/act3/00-shared-landings.js
 missions/act3/m9-incheon.js
 missions/act3/m9b-goseong.js
 missions/act3/m10a-capital.js
+missions/act3/m10-plan.js
 missions/act3/m10-north.js
 missions/act3/m10b-pyongyang.js
 missions/act3/m11-thaw.js

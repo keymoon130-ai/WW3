@@ -1,5 +1,5 @@
 /* ---------- the helicopter ride: same cabin as 「북쪽으로」, flying the real road ---------- */
-function hgAir(S, z0) {
+function hgAir(S, z0, gun = 'km19') {
   const H = new Vehicle('heli', -30, z0 + 50, { team: 'ally', armed: false, invuln: true, speed: 0, bob: false }); H.m.root.scale.setScalar(1.5);
   heliCabin(H); H.pos.y = 20; H.q = -(z0 + 50); H.d = -8; H.m.root.position.copy(H.pos);
   G.heliT = { z: z0, follow: true, alt: 20, x: 0 }; let clrT = 0, clr = 20, weave = 0, vy = 0;
@@ -17,7 +17,7 @@ function hgAir(S, z0) {
     H.m.root.position.copy(H.pos); roll = lerp(roll, (T.roll || 0) - vd * 0.02, Math.min(1, dt * 2.2)); H.m.root.rotation.set(Math.max(-0.08, vq * 0.004), H.yaw, roll);
     if (P.ride && P.ride.obj === H.m.root) P.yawLim = [H.yaw, 1.25]; });
   P.ride = { obj: H.m.root, off: [0.45, -1.3, -2.2] }; // seated: eye ~1.1 (local) over the cabin floor, level with the pilot beside us P.yaw = 0; P.pitch = -0.3; P.noFire = false;
-  for (const w of ['rifle', 'sniper', 'pistol']) S.take(w); S.give('km19');
+  for (const w of ['rifle', 'sniper', 'pistol']) S.take(w); S.give(gun);
   G.hitMul = 0.35; S.every(0.5, () => { if (P.alive && P.hp < 100 && G.time - P.lastHit > 2) P.hp = Math.min(100, P.hp + 6); });
   // the column below: two K2s and two K808s on the northbound deck
   const colV = [];
@@ -38,7 +38,7 @@ async function hgSeg(S, stopZ, tag, label, cap, travel) {
   let next = G.colFront - 60, n = 0; const tok = G.token;
   const spawner = () => { if (G.token !== tok || G.colStop !== stopZ) return true; if (G.colFront > next) return; const q = -G.colFront + rand(230, 290); if (-q < stopZ + 420) return true;
     next -= rand(130, 190); n++; const side = pick([-1, 1]);
-    for (let i = 0; i < randi(5, 8); i++) { const p = hgPath(q + rand(-25, 25), (Math.random() < 0.7 ? side : -side) * rand(14, 32)); enemy(p.x, p.z, { tag: 'roll', view: 170, kind: Math.random() < 0.35 ? 'heavy' : 'rifle', crouch: Math.random() < 0.5, hold: true }); }
+    for (let i = 0, nn = Math.round(randi(5, 8) * (G.menMul || 1)); i < nn; i++) { const p = hgPath(q + rand(-25, 25), (Math.random() < 0.7 ? side : -side) * rand(14, 32)); enemy(p.x, p.z, { tag: 'roll', view: 170, kind: Math.random() < 0.35 ? 'heavy' : 'rifle', crouch: Math.random() < 0.5, hold: true }); }
     if (n % 3 === 0) { const p = hgPath(q + 30, side * 9), r = hgPath(q + 10, side * 9); new Vehicle('bmp', p.x, p.z, { team: 'enemy', path: [[r.x, r.z]], speed: 3, armed: true, range: 160, scale: 1.05 }); }
     if (n % 2 === 1) S.radio(pick(['윤하린 중사', '한지운 하사', '박도현 중위']), pick(['우측 건물 앞, 적 보병!', '좌측 상가에 적!', '전방 길가, 적 매복!', '골목에서 튀어나온다!']), { dur: 2 }); };
   G.updaters.push(() => spawner());
@@ -47,9 +47,9 @@ async function hgSeg(S, stopZ, tag, label, cap, travel) {
 /* put a column vehicle at q (after a skip), picking up its waypoints from there */
 function hgColPlace(v, q) { const p = hgPath(q, v.lane); v.pos.set(p.x, 0, p.z); v.yaw = p.yaw; v.m.root.position.copy(v.pos); v.m.root.rotation.y = p.yaw; v.q = q; v.pi = Math.max(0, v.pathQ.findIndex((qq) => qq > q + 2)); }
 /* infantry and vehicles placed along the ride: q range, d either side (or a fixed band) */
-function hgMenQ(tag, n, s0, s1, o = {}) { for (let i = 0; i < n; i++) { const p = rtAt(rand(s0, s1), (o.d0 !== undefined) ? rand(o.d0, o.d1) : pick([-1, 1]) * rand(o.w0 ?? 2, o.w ?? 15)); enemy(p.x, p.z, { tag, view: 170, kind: Math.random() < 0.3 ? 'heavy' : 'rifle', crouch: Math.random() < 0.4, hold: true, y: o.y }); } }
+function hgMenQ(tag, n, s0, s1, o = {}) { n = Math.round(n * (G.menMul || 1)); for (let i = 0; i < n; i++) { const p = rtAt(rand(s0, s1), (o.d0 !== undefined) ? rand(o.d0, o.d1) : pick([-1, 1]) * rand(o.w0 ?? 2, o.w ?? 15)); enemy(p.x, p.z, { tag, view: 170, kind: Math.random() < 0.3 ? 'heavy' : 'rifle', crouch: Math.random() < 0.4, hold: true, y: o.y }); } }
 function hgArmorQ(kind, s, d, o = {}) { const p = rtAt(s, d), q = rtAt(s - 20, d); return new Vehicle(kind, p.x, p.z, Object.assign({ team: 'enemy', path: [[q.x, q.z]], speed: 2.5, armed: true, range: 180, scale: 1.05 }, o)); }
-function hgMen(tag, n, z0, z1, o = {}) { for (let i = 0; i < n; i++) { const z = rand(z1, z0), x = (o.x ?? 0) + pick([-1, 1]) * rand(o.w0 ?? 2, o.w ?? 15); enemy(x, z, { tag, view: 160, kind: Math.random() < 0.3 ? 'heavy' : 'rifle', crouch: Math.random() < 0.4, hold: true, y: o.y }); } }
+function hgMen(tag, n, z0, z1, o = {}) { n = Math.round(n * (G.menMul || 1)); for (let i = 0; i < n; i++) { const z = rand(z1, z0), x = (o.x ?? 0) + pick([-1, 1]) * rand(o.w0 ?? 2, o.w ?? 15); enemy(x, z, { tag, view: 160, kind: Math.random() < 0.3 ? 'heavy' : 'rifle', crouch: Math.random() < 0.4, hold: true, y: o.y }); } }
 
 /* ---------- set pieces: a near miss, and someone on our side gets there first ----------
    each one: the threat shows itself → lock tone and red edge, the view is drawn to it → a beat of slow motion → an ally kills it.
@@ -281,7 +281,7 @@ function hgBeatE(S) {
 
 /* ---------- the ride north: 한강대교 → 한강대로 → 서울역 → 숭례문 → 시청 → 광화문, shared by the sample (test: T skips) and 「북쪽으로」 (story) ---------- */
 async function hgFlight(S, o = {}) {
-    hgAir(S, 150);
+    hgAir(S, o.z0 ?? 150, o.gun);
     // test shortcut: T finishes the current stretch — the fight there is cleared and the column and the helicopter jump to where it halts; the mission logic runs as normal
     const skip = (e) => { if (e.code !== 'KeyT' || G.mode !== 'play' || G.paused || G.cut) return;
       for (const a of G.actors) if (a.alive && a.team === 'enemy') a.hurt(99999, PT);
@@ -294,7 +294,6 @@ async function hgFlight(S, o = {}) {
     if (o.test) S.hint('테스트용 · <kbd>T</kbd> 현재 구간 건너뛰기 · <kbd>H</kbd> 기총 카메라', 8); else S.hint('<kbd>H</kbd> 기총 카메라 · 마우스로 조준, <kbd>좌클릭</kbd> 사격', 6);
     S.fade(0, 1.5);
     if (o.story) { // 「북쪽으로」: the crossing we fled over six weeks ago
-      for (const [t, who, line] of [[30, '2대대', '여기는 2대대, 마포대교 돌파했다!'], [95, '5사단', '여의도 확보! 원효대교로 건너간다!'], [260, '5사단', '여기는 5사단, 용산역 확보했다! 후속 들어간다!']]) S.later(t, () => S.radio(who, line, { dur: 3 }));
       await S.radio('수리온 2-1', '독수리 2-1, 한강대교 상공 진입. 사수, 사격 자유.', { dur: 3 });
       await S.say('한지운 하사', '한 달 반 전에 이 다리를 건너서 도망쳤다.', { dur: 2.6 });
       await S.say('박도현 중위', '이번엔 우리가 위에서 길을 연다. 서한준! 다리 위 바리케이드부터!', { dur: 3 });
@@ -331,7 +330,7 @@ async function hgFlight(S, o = {}) {
     await hgSeg(S, zq(SS - 120), 'h7', '서울역 광장 제압', 40, '서울역까지 진격');
     // 숭례문: men round the gate's park and on the east road, a tank at the junction
     hgMenQ('h8', 10, V[3] - 260, V[3] - 60, { d0: 30, d1: 100 }); hgMenQ('h8', 7, V[3] - 120, V[3] + 40, { w: 16 }); hgArmorQ('tank', V[3] + 30, -8);
-    S.radio('박도현 중위', '숭례문이다. 문화재 쪽으로는 쏘지 마라!', { dur: 2.6 }); if (o.story) S.later(5, () => S.radio('해병 1연대', '남대문시장 확보! 숭례문 동쪽 막았다!', { dur: 3 }));
+    S.radio('박도현 중위', '숭례문이다. 문화재 쪽으로는 쏘지 마라!', { dur: 2.6 });
     await hgSeg(S, zq(V[3] - 300), 'h8', '숭례문 교차로 확보', 40, '숭례문까지 진격');
     // 시청: the plaza, 덕수궁's wall, the hotel corner
     hgMenQ('h9', 11, V[4] + 60, V[4] + 260, { d0: 30, d1: 120 }); hgMenQ('h9', 7, V[4] + 60, V[4] + 260, { d0: -34, d1: -22 }); hgArmorQ('bmp', V[4] + 240, 9);
