@@ -4628,6 +4628,8 @@ const SFX = {
   // hand-held illumination rocket: the thump of the launch, the hiss of the motor climbing; then the pop of the candle and parachute up high
   flareLaunch(pos) { const sp = spatial(pos, 25); if (sp.g < 0.03) return; noiseBurst({ dur: 0.09, f: 700, type: 'bandpass', q: 1, gain: 0.7 * sp.g, pan: sp.pan, wet: 0.2 }); noiseBurst({ t: 0.05, dur: 1.8, f: 3200, f2: 1100, type: 'bandpass', q: 0.8, gain: 0.22 * sp.g, pan: sp.pan, wet: 0.3 }); },
   flarePop(pos) { const sp = spatial(pos, 70); if (sp.g < 0.03) return; noiseBurst({ dur: 0.14, f: 420, type: 'lowpass', gain: 0.55 * sp.g, pan: sp.pan, wet: 0.5 }); },
+  // a crowd breaking into cheers: many voices as overlapping vowel-band noise, swelling and falling over a few seconds
+  cheer(pos, dur = 4) { const sp = spatial(pos, 30); if (sp.g < 0.03) return; for (let i = 0; i < 26; i++) { const t = rand(0, dur * 0.7), f = rand(500, 1400); noiseBurst({ t, dur: rand(0.5, 1.4), f, f2: f * rand(0.85, 1.2), type: 'bandpass', q: rand(3, 7), gain: 0.22 * sp.g, att: 0.08, pan: sp.pan + rand(-0.3, 0.3), wet: 0.6 }); } },
   impact(pos) { const sp = spatial(pos, 8); if (sp.g < 0.05) return; noiseBurst({ dur: 0.06, f: 2400, type: 'bandpass', q: 1.5, gain: 0.35 * sp.g, pan: sp.pan, wet: 0.1 }); },
   metal(pos) { const sp = spatial(pos, 10); tone({ dur: 0.18, f: rand(1400, 2400), type: 'triangle', gain: 0.2 * sp.g, pan: sp.pan }); },
   hit() { tone({ dur: 0.06, f: 1800, type: 'square', gain: 0.07, wet: 0 }); noiseBurst({ dur: 0.04, f: 4000, type: 'highpass', gain: 0.12, wet: 0 }); },
@@ -11796,21 +11798,6 @@ function m10Gwanghwamun() {
   const grp = (s, d) => { const q = at(s, d); const g = new THREE.Group(); g.position.set(q.x, 0.3, q.z); g.rotation.y = Y; G.world.add(g); return g; };
   const put = (g, w, h, d, m, x, y, z) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.position.set(x, y, z); me.castShadow = me.receiveShadow = true; g.add(me); return me; };
   const solid = (g, w, h, d, x, z) => { const p = g.localToWorld(v3(x, 0, z)), c = Math.abs(Math.cos(Y)), s = Math.abs(Math.sin(Y)), hx = (w * c + d * s) / 2, hz = (w * s + d * c) / 2; addCollider(p.x - hx, 0, p.z - hz, p.x + hx, h + 0.3, p.z + hz, {}); };
-  // the 광화문역 shelter exit on the west pavement: a granite stair head, a steel blast door across it, the line sign
-  { const g = grp(s0 + 105, -86); g.updateMatrixWorld(); F.exitG = g;
-    put(g, 0.4, 3.2, 8, stone, -2.3, 1.6, 0); put(g, 0.4, 3.2, 8, stone, 2.3, 1.6, 0); put(g, 5, 0.4, 8, stone, 0, 3.4, 0); solid(g, 0.4, 3.2, 8, -2.3, 0); solid(g, 0.4, 3.2, 8, 2.3, 0);
-    F.door = put(g, 4.2, 3.0, 0.25, steel, 0, 1.5, 3.9); F.doorCol = addCollider(...(() => { const p = g.localToWorld(v3(0, 0, 3.9)); return [p.x - 2.2, 0, p.z - 2.2, p.x + 2.2, 3, p.z + 2.2]; })(), {});
-    put(g, 3.8, 0.1, 7, mat('ghStairD', { color: 0x222426, rough: 1 }), 0, 0.06, -0.3);
-    const sign = put(g, 2.6, 0.7, 0.08, mat('ghSign5', { color: 0x8a3fa8, rough: 0.5 }), 0, 3.95, 4.05); sign.material = new THREE.MeshStandardMaterial({ map: canvasTex(256, 70, (c, w, h) => { c.fillStyle = '#8a3fa8'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.fillText('5  광화문역', w / 2, 48); }), emissive: 0xffffff, emissiveIntensity: 0.25 });
-    F.doorPos = g.localToWorld(v3(0, 1.2, 5.2)); }
-  // 광화문역 기념관: a small glass pavilion beside it; inside, a glass case with the flag the station kept through the occupation
-  { const g = grp(s0 + 128, -88); g.updateMatrixWorld();
-    for (const [w, h, d, x, z] of [[0.3, 3.6, 10, -4, 0], [0.3, 3.6, 10, 4, 0], [8.3, 3.6, 0.3, 0, -5]]) { put(g, w, h, d, glass, x, 1.8, z); solid(g, w, h, d, x, z); }
-    put(g, 8.6, 0.3, 10.6, steel, 0, 3.75, 0); put(g, 2.9, 3.6, 0.3, glass, -2.6, 1.8, 5); put(g, 2.9, 3.6, 0.3, glass, 2.6, 1.8, 5); solid(g, 2.9, 3.6, 0.3, -2.6, 5); solid(g, 2.9, 3.6, 0.3, 2.6, 5);
-    const lab = put(g, 6, 0.8, 0.08, steel, 0, 4.4, 5.2); lab.material = new THREE.MeshStandardMaterial({ map: canvasTex(384, 64, (c, w, h) => { c.fillStyle = '#1b2a3a'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8e4dc'; c.font = 'bold 36px sans-serif'; c.textAlign = 'center'; c.fillText('광화문역 기념관', w / 2, 46); }), emissive: 0xffffff, emissiveIntensity: 0.2 });
-    put(g, 1.6, 1.0, 1.0, mat('ghCase', { color: 0x3a3028, rough: 0.6 }), 0, 0.5, -2.5); solid(g, 1.6, 1.0, 1.0, 0, -2.5); put(g, 1.5, 0.6, 0.9, glass, 0, 1.3, -2.5);
-    F.caseFlag = put(g, 0.9, 0.12, 0.6, new THREE.MeshStandardMaterial({ map: canvasTex(120, 80, (c, w, h) => drawFlag(c, w, h, 'kr')), roughness: 0.9 }), 0, 1.07, -2.5);
-    F.casePos = g.localToWorld(v3(0, 1.1, -1.4)); }
   // the pole in front of the gate, its halyard waiting
   { const q = at(T - 70, -26); F.poleBase = v3(q.x, 0, q.z); F.poleH = 14;
     addBox(q.x, 0, q.z, 1.6, 0.6, 1.6, mat('ghPoleB', { color: 0xc8c2b6, rough: 0.8 })); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.13, F.poleH, 10), MT.metal()); pole.position.set(q.x, 0.6 + F.poleH / 2, q.z); pole.castShadow = true; G.world.add(pole);
@@ -11819,6 +11806,115 @@ function m10Gwanghwamun() {
     F.flag = new THREE.Mesh(fg, fm); F.flag.position.set(q.x + 0.1, 1.6, q.z); F.flag.visible = false; G.world.add(F.flag); const base = fg.attributes.position.array.slice();
     G.updaters.push(() => { if (!F.flag.visible) return; const a = fg.attributes.position, k = Math.min(1, (F.flag.position.y - 1.6) / 6); for (let i = 0; i < a.count; i++) { const bx = base[i * 3]; a.setZ(i, Math.sin(bx * 2.2 - G.time * 4.5) * (0.04 + 0.12 * k) * bx); a.setY(i, base[i * 3 + 1] - (1 - k) * 0.35 * bx * bx); } a.needsUpdate = true; fg.computeVertexNormals(); }); }
   return F;
+}
+
+/* ========== 광화문역 대피소 (「북쪽으로」 finale) ==========
+   A 5호선 street entrance on the west side of the plaza, closed by a steel blast door. Behind it the stair drops in two flights to the
+   concourse 9 m down; along the passage, the station's small memorial room (기념관) with the flag in its case; at the end a second
+   blast door, and behind that the shelter hall where people have lived for six weeks — lying on blankets, sitting against the walls,
+   curled up, crying. When the last door opens they get up, cheer, and run for the stairs and the daylight.
+   The collision world is boxes on the world axes, so the whole thing is laid out on the axes too (the plaza runs at 34°; the entrance
+   kiosk sits square to the compass, as plenty of real ones do). Ground can't normally go below 0: activate() turns this footprint
+   into a deep pit (G.groundAt) under a walkable lid, with the stairwell left open; the lid and stairwell surfaces are cut out of the
+   plaza paving in the shader. */
+function m10Shelter() {
+  const E = rtAt(RT.V[4] + 795, -62), ex = E.x, ez = E.z, D = { ex, ez, FL: -9, CL: -4.6 };
+  const TOP = 0.3; // the plaza surface
+  const gran = mat('shGran', { color: 0x8a8680, rough: 0.8 }), wallM = mat('shWall', { color: 0x9a968c, map: 'concrete', rough: 0.9 }), floorM = mat('shFloor', { color: 0x6e6a62, map: 'concrete', rough: 0.95 });
+  const ceilM = mat('shCeil', { color: 0x5a5852, rough: 1 }), steel = mat('shSteel', { color: 0x4a5056, rough: 0.45, metal: 0.65 }), stepM = mat('shStep', { color: 0x7c786e, map: 'concrete', rough: 0.9 }), nose = mat('shNose', { color: 0xb89a30, rough: 0.6 });
+  const lamp = basicMat('shLamp', 0xf2ecd8), lampDim = basicMat('shLampDim', 0x8a8470), red = basicMat('shRed', 0xff3020), glass = mat('shGlass', { color: 0x9ab0b8, rough: 0.06, metal: 0.3, transparent: true, opacity: 0.35 });
+  const B = (x0, x1, y0, y1, z0, z1, m, o = {}) => { const me = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m); me.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); me.castShadow = o.cast ?? true; me.receiveShadow = true; G.world.add(me);
+    if (o.col !== false) me.userData.col = addCollider(x0, y0, z0, x1, y1, z1, {}); return me; };
+  const X = (a) => ex + a, Z = (b) => ez + b; // local offsets: +x east, -z north (into the ground)
+  // ---- the street kiosk: granite walls on three sides, a glass canopy, the blast door across the open (south) side ----
+  B(X(-2.6), X(-2.2), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(2.2), X(2.6), 0, 3.3, Z(-5.2), Z(4.4), gran); B(X(-2.6), X(2.6), 0, 3.3, Z(-5.6), Z(-5.2), gran);
+  B(X(-2.8), X(2.8), 3.3, 3.45, Z(-5.8), Z(4.8), steel, { col: false }); B(X(-2.6), X(2.6), 3.45, 3.5, Z(-5.6), Z(4.6), glass, { col: false, cast: false });
+  D.door1 = B(X(-2.2), X(2.2), TOP, 3.2, Z(4.0), Z(4.25), steel); D.door1Pos = v3(X(0), 1.2, Z(5.4));
+  for (let i = 0; i < 5; i++) B(X(-2.1), X(2.1), 0.4 + i * 0.6, 0.45 + i * 0.6, Z(4.25), Z(4.3), mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 }), { col: false, cast: false }); // the door's ribs
+  { const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.7), new THREE.MeshStandardMaterial({ map: canvasTex(256, 70, (c, w, h) => { c.fillStyle = '#8a3fa8'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.fillText('5  광화문역', w / 2, 48); }), emissive: 0xffffff, emissiveIntensity: 0.25 })); s.position.set(X(0), 3.85, Z(4.81)); G.world.add(s); }
+  { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), new THREE.MeshStandardMaterial({ map: canvasTex(160, 100, (c, w, h) => { c.fillStyle = '#e8d020'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('민방위 대피소', w / 2, 40); c.font = '16px sans-serif'; c.fillText('CIVIL DEFENSE SHELTER', w / 2, 70); }) })); s.position.set(X(2.62), 2.2, Z(2)); s.rotation.y = Math.PI / 2; G.world.add(s); }
+  // ---- flight 1: under the kiosk, from the plaza down to a landing 4.5 m down; flight 2 on north to the concourse ----
+  const flight = (z0, y0, y1, n, x0, x1) => { const rise = (y0 - y1) / n; for (let i = 0; i < n; i++) { const za = z0 - (i + 1) * 0.3, h = y0 - (i + 1) * rise; B(x0, x1, D.FL - 0.5, h, za, za + 0.3, stepM, { cast: false }); B(x0, x1, h - 0.005, h + 0.01, za + 0.25, za + 0.3, nose, { col: false, cast: false }); } return z0 - n * 0.3; };
+  const zL1 = flight(Z(3.9), TOP, -4.5, 26, X(-1.9), X(1.9)); D.stairTop = v3(X(0), TOP, Z(3.4));
+  B(X(-1.9), X(1.9), D.FL - 0.5, -4.5, zL1 - 2.2, zL1, floorM, { cast: false }); const zF2 = zL1 - 2.2; D.landing = v3(X(0), -4.5, zL1 - 1.1);
+  const zC = flight(zF2, -4.5, D.FL, 26, X(-1.9), X(1.9)); D.stairFoot = v3(X(0), D.FL, zC - 1);
+  // the stairwell's walls and ceiling, down into the ground (the plaza is above the ceiling from flight 2 on)
+  for (const s of [-1, 1]) B(X(s * 2.2) - 0.2, X(s * 2.2) + 0.2, D.FL - 0.5, 0, zC, Z(4.2), wallM, { cast: false });
+  B(X(-2.4), X(2.4), D.FL - 0.5, 0, Z(4.2), Z(4.6), wallM, { cast: false }); // under the door sill
+  B(X(-2.4), X(2.4), -0.6, -0.2, zC, Z(-5.2), ceilM, { col: false, cast: false });
+  for (let z = Z(-6); z > zC; z -= 4) B(X(-0.3), X(0.3), -0.64, -0.6, z - 1.2, z, lampDim, { col: false, cast: false });
+  // ---- the passage north to the shelter, 6 m wide, 4.4 m high; the memorial room opens off its east side ----
+  const c0 = zC, c1 = zC - 14; D.c0 = c0; D.c1 = c1;
+  B(X(-3), X(3), D.FL - 0.5, D.FL, c1, c0, floorM, { cast: false }); B(X(-3.2), X(3.2), D.CL, D.CL + 0.4, c1, c0 + 0.2, ceilM, { col: false, cast: false });
+  B(X(-3.4), X(-3), D.FL, D.CL, c1, c0, wallM); B(X(3), X(3.4), D.FL, D.CL, c0 - 4, c0, wallM); B(X(3), X(3.4), D.FL, D.CL, c1, c0 - 7.5, wallM);
+  B(X(-3.4), X(-1.9), D.FL, D.CL, c0 - 0.2, c0 + 0.2, wallM); B(X(1.9), X(3.4), D.FL, D.CL, c0 - 0.2, c0 + 0.2, wallM); // the head of the passage either side of the stair foot
+  for (let z = c0 - 2; z > c1; z -= 4) B(X(-0.25), X(0.25), D.CL - 0.05, D.CL, z - 1.4, z, Math.random() < 0.3 ? lampDim : lamp, { col: false, cast: false });
+  B(X(-3), X(-2.98), D.FL + 1.8, D.FL + 2.6, c0 - 9, c0 - 5, new THREE.MeshStandardMaterial({ map: canvasTex(256, 64, (c, w, h) => { c.fillStyle = '#e8e6e0'; c.fillRect(0, 0, w, h); c.fillStyle = '#8a3fa8'; c.fillRect(0, 0, 10, h); c.fillStyle = '#222'; c.font = 'bold 26px sans-serif'; c.fillText('5호선 광화문역 · 대피소 →', 22, 42); }) }), { col: false });
+  // the memorial room: plaques, photos, and the case
+  { const m0 = c0 - 4, m1 = c0 - 7.5, r0 = X(3.4), r1 = X(10);
+    B(r0, r1, D.FL - 0.5, D.FL, m1 - 3, m0 + 3, floorM, { cast: false }); B(r0, r1 + 0.4, D.CL, D.CL + 0.4, m1 - 3.4, m0 + 3.4, ceilM, { col: false, cast: false });
+    B(r1, r1 + 0.4, D.FL, D.CL, m1 - 3, m0 + 3, wallM); B(r0, r1, D.FL, D.CL, m0 + 2.6, m0 + 3, wallM); B(r0, r1, D.FL, D.CL, m1 - 3, m1 - 2.6, wallM); B(X(3), r0, D.FL, D.CL, m0, m0 + 3, wallM); B(X(3), r0, D.FL, D.CL, m1 - 3, m1, wallM);
+    const label = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.6), new THREE.MeshStandardMaterial({ map: canvasTex(384, 58, (c, w, h) => { c.fillStyle = '#1b2a3a'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8e4dc'; c.font = 'bold 34px sans-serif'; c.textAlign = 'center'; c.fillText('광화문역 기념관', w / 2, 42); }), emissive: 0xffffff, emissiveIntensity: 0.2 }));
+    label.position.set(r1 - 0.02, D.FL + 3.4, (m0 + m1) / 2); label.rotation.y = -Math.PI / 2; G.world.add(label);
+    for (let i = 0; i < 4; i++) { const ph = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.8), mat('shPhoto' + i, { color: [0x6a6258, 0x7a7268, 0x5a5650, 0x807a70][i], rough: 0.9 })); ph.position.set(r1 - 0.02, D.FL + 1.9, m1 - 2 + i * 1.6); ph.rotation.y = -Math.PI / 2; G.world.add(ph); }
+    B(r1 - 1.6, r1 - 0.6, D.FL, D.FL + 1.0, (m0 + m1) / 2 - 0.8, (m0 + m1) / 2 + 0.8, mat('shCase', { color: 0x3a3028, rough: 0.6 })); B(r1 - 1.55, r1 - 0.65, D.FL + 1.0, D.FL + 1.6, (m0 + m1) / 2 - 0.75, (m0 + m1) / 2 + 0.75, glass, { col: false });
+    D.caseFlag = B(r1 - 1.4, r1 - 0.8, D.FL + 1.02, D.FL + 1.14, (m0 + m1) / 2 - 0.45, (m0 + m1) / 2 + 0.45, new THREE.MeshStandardMaterial({ map: canvasTex(120, 80, (c, w, h) => drawFlag(c, w, h, 'kr')), roughness: 0.9 }), { col: false });
+    D.casePos = v3(r1 - 2.4, D.FL + 1.2, (m0 + m1) / 2);
+    for (let z = m1 - 2; z < m0 + 2; z += 2.5) B(X(6) - 0.2, X(6) + 0.2, D.CL - 0.05, D.CL, z, z + 1.4, lamp, { col: false, cast: false }); }
+  // ---- the second blast door and the shelter hall: 24 m across, 22 m deep, columns in two rows ----
+  const h0 = c1, h1 = c1 - 22; D.h0 = h0; D.h1 = h1;
+  D.door2 = B(X(-3), X(3), D.FL, D.FL + 3.4, h0 - 0.1, h0 + 0.25, steel); D.door2Pos = v3(X(0), D.FL + 1.2, h0 + 1.6);
+  B(X(-3), X(3), D.FL + 3.4, D.CL, h0 - 0.1, h0 + 0.25, wallM);
+  for (let i = 0; i < 6; i++) B(X(-2.9), X(2.9), D.FL + 0.4 + i * 0.5, D.FL + 0.45 + i * 0.5, h0 + 0.25, h0 + 0.3, mat('shRib', { color: 0x3c4246, rough: 0.5, metal: 0.6 }), { col: false, cast: false });
+  B(X(-12), X(12), D.FL - 0.5, D.FL, h1, h0, floorM, { cast: false }); B(X(-12.4), X(12.4), D.CL, D.CL + 0.4, h1 - 0.4, h0 + 0.3, ceilM, { col: false, cast: false });
+  B(X(-12.4), X(-12), D.FL, D.CL, h1, h0, wallM); B(X(12), X(12.4), D.FL, D.CL, h1, h0, wallM); B(X(-12.4), X(12.4), D.FL, D.CL, h1 - 0.4, h1, wallM);
+  B(X(-12.4), X(-3), D.FL, D.CL, h0 - 0.1, h0 + 0.3, wallM); B(X(3), X(12.4), D.FL, D.CL, h0 - 0.1, h0 + 0.3, wallM);
+  for (const x of [-5, 5]) for (let z = h0 - 5; z > h1 + 2; z -= 6) B(X(x) - 0.4, X(x) + 0.4, D.FL, D.CL, z - 0.4, z + 0.4, mat('shCol', { color: 0xb4ae9e, rough: 0.8 }));
+  for (const x of [-8.5, 0, 8.5]) for (let z = h0 - 3; z > h1 + 1; z -= 5) B(X(x) - 0.2, X(x) + 0.2, D.CL - 0.05, D.CL, z - 1.4, z, Math.random() < 0.4 ? lampDim : lamp, { col: false, cast: false });
+  for (const [x, z] of [[-11.8, h0 - 1], [11.8, h1 + 1]]) B(X(x) - 0.1, X(x) + 0.1, D.CL - 0.6, D.CL - 0.3, Z(0) + z - ez - 0.3, Z(0) + z - ez + 0.3, red, { col: false, cast: false });
+  // six weeks of living down here: blankets and mats, water, boxes, bags along the walls
+  const blanket = [0x6a3a3a, 0x3a4a6a, 0x5a5a3a, 0x7a6a50, 0x4a3a5a, 0x3a5a4a], spots = [];
+  for (let i = 0; i < 46; i++) { let x, z, k = 0; do { x = rand(-11, 11); z = rand(h1 + 1.5, h0 - 2.5); k++; } while (k < 20 && (Math.abs(x) < 1.6 || spots.some(([a, b]) => Math.hypot(a - x, b - z) < 1.6) || ([-5, 5].some((cx) => Math.abs(x - cx) < 1.1)))); spots.push([x, z]); }
+  D.spots = spots.map(([x, z]) => v3(X(x), D.FL, z));
+  for (const [x, z] of spots) { const b = new THREE.Mesh(new THREE.BoxGeometry(rand(1.0, 1.4), 0.04, rand(1.8, 2.2)), mat('shBl' + (Math.abs(Math.round(x * 7 + z)) % 6), { color: pick(blanket), rough: 1 })); b.position.set(X(x), D.FL + 0.03, z); b.rotation.y = rand(-0.4, 0.4); G.world.add(b); }
+  for (let i = 0; i < 30; i++) { const w = Math.random() < 0.5, x = pick([-1, 1]) * rand(10.6, 11.6), z = rand(h1 + 1, h0 - 1); B(X(x) - 0.3, X(x) + 0.3, D.FL, D.FL + (w ? 0.35 : 0.5), z - 0.25, z + 0.25, w ? mat('shWater', { color: 0x8ab8d8, rough: 0.2, transparent: true, opacity: 0.8 }) : mat('shBox', { color: 0x9a8058, rough: 0.9 }), { col: false }); }
+  // ---- the people, posed: each a soldier-rig in civilian clothes, held in one of five postures ----
+  D.people = [];
+  for (const p of D.spots) { const kind = pick(['lie', 'lie', 'sit', 'sit', 'curl', 'cry', 'cry', 'kneel']); const m = makeSoldierMesh('rok', { civ: pick([0x6b3b33, 0x2f4a6b, 0x7a6a50, 0x3d5a45, 0x5a4a6a, 0x4a4a4a, 0x8a6a5a]), unarmed: true });
+    m.root.position.copy(p); m.root.rotation.y = rand(0, TAU); G.world.add(m.root); const o = { m, kind, ph: rand(0, TAU), p: p.clone() }; m7ShPose(o, 0); D.people.push(o); }
+  G.updaters.push((dt) => { if (!D.people.length || G.mode !== 'play') return; const near = P.pos.y < -1 || P.pos.distanceTo(D.people[0].p) < 30; for (const o of D.people) { if (o.done) continue; o.m.root.visible = near; if (near) m7ShPose(o, dt); } });
+  // the pit under the plaza: activate() makes it real for everything that walks
+  const pit = { x0: X(-12.6), x1: X(12.6), z0: Math.min(h1, Z(-5.6)) - 0.6, z1: Z(4.6) }, hole = { x0: X(-1.9), x1: X(1.9), z0: zL1 + 0.01, z1: Z(4.0) };
+  D.activate = () => { if (D.on) return; D.on = true; const g0 = G.groundAt; G.groundAt = (x, z) => (x > pit.x0 && x < pit.x1 && z > pit.z0 && z < pit.z1 ? D.FL - 0.5 : g0(x, z));
+    // the lid: the plaza over the pit, everywhere but the open stairwell inside the kiosk
+    for (const [a, b, c, d] of [[pit.x0, pit.x1, pit.z0, hole.z0], [pit.x0, pit.x1, hole.z1, pit.z1], [pit.x0, hole.x0, hole.z0, hole.z1], [hole.x1, pit.x1, hole.z0, hole.z1]]) addCollider(a, -0.5, c, b, TOP, d, {}); };
+  m10CutPlaza(hole);
+  return D;
+}
+/* the people's postures; t advances their breathing and crying */
+function m7ShPose(o, dt) {
+  const m = o.m; o.ph += dt; const ph = o.ph;
+  if (o.cheer) { // up on their feet, arms in the air, bouncing
+    const k = Math.min(1, o.cheer += dt * 2.2); poseSoldier(m, { moving: false, speed: 0, crouch: 1 - k, aim: 0, walk: 0, pitch: 0.3 }, 1); m.root.rotation.x = 0; m.root.position.y = o.p.y + Math.abs(Math.sin(ph * 7)) * 0.18 * k;
+    if (m.armR) { m.armR.rotation.set(-2.9 + Math.sin(ph * 9) * 0.3, 0, -0.2); } if (m.armL) { m.armL.rotation.set(-2.9 + Math.cos(ph * 8) * 0.3, 0, 0.2); } return; }
+  if (o.kind === 'lie') { poseSoldier(m, { moving: false, speed: 0, crouch: 0, aim: 0, walk: 0, pitch: 0 }, 1); m.root.rotation.x = -Math.PI / 2; m.root.position.y = o.p.y + 0.22 + Math.sin(ph * 1.4) * 0.008; }
+  else if (o.kind === 'sit') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: -0.2 }, 1); m.root.rotation.x = 0.12; m.root.position.y = o.p.y - 0.35; }
+  else if (o.kind === 'curl') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: 0.7 }, 1); m.root.rotation.x = 0.35; m.root.position.y = o.p.y - 0.42; if (m.armR) m.armR.rotation.set(-0.9, 0, 0.5); if (m.armL) m.armL.rotation.set(-0.9, 0, -0.5); }
+  else if (o.kind === 'kneel') { poseSoldier(m, { moving: false, speed: 0, crouch: 0.85, aim: 0, walk: 0, pitch: 0.5 }, 1); m.root.rotation.x = 0.15; m.root.position.y = o.p.y - 0.25; }
+  else { // crying: hunched, face in the hands, shoulders shaking
+    poseSoldier(m, { moving: false, speed: 0, crouch: 0.9, aim: 0, walk: 0, pitch: 0.8 }, 1); m.root.rotation.x = 0.3 + Math.sin(ph * 11) * 0.025; m.root.position.y = o.p.y - 0.3 + Math.sin(ph * 11) * 0.012;
+    if (m.armR) m.armR.rotation.set(-1.9, 0, 0.6); if (m.armL) m.armL.rotation.set(-1.9, 0, -0.6); }
+}
+/* the plaza paving and the ground under the kiosk are cut away in their shaders so the stairwell shows from above */
+function m10CutPlaza(hole) {
+  const rc = new THREE.Raycaster(), mats = new Set(); rc.camera = camera; // sprites in the scene need it
+  for (const [u, v] of [[0.5, 0.5], [0.2, 0.2], [0.8, 0.8], [0.2, 0.8], [0.8, 0.2]]) { const x = hole.x0 + (hole.x1 - hole.x0) * u, z = hole.z0 + (hole.z1 - hole.z0) * v; rc.set(v3(x, 40, z), v3(0, -1, 0));
+    for (const h of rc.intersectObjects([G.staticRoot, G.world], true)) { if (h.point.y > 1 || h.point.y < -1.5 || !h.object.isMesh) continue; (Array.isArray(h.object.material) ? h.object.material : [h.object.material]).forEach((m) => mats.add(m)); } }
+  for (const m of mats) { if (m.userData.holeCut) continue; m.userData.holeCut = true; const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey ? m.customProgramCacheKey.bind(m) : () => '';
+    m.onBeforeCompile = (s, r) => { if (prev) prev(s, r);
+      s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vHoleW;').replace('#include <project_vertex>', '#include <project_vertex>\nvHoleW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vHoleW;`).replace('void main() {', `void main() {\nif (vHoleW.x > ${hole.x0.toFixed(2)} && vHoleW.x < ${hole.x1.toFixed(2)} && vHoleW.z > ${hole.z0.toFixed(2)} && vHoleW.z < ${hole.z1.toFixed(2)} && vHoleW.y > -1.5) discard;`); };
+    m.customProgramCacheKey = () => prevKey() + '|hole'; m.needsUpdate = true; }
 }
 
 function gunship(S) {
@@ -11846,7 +11942,8 @@ function roofAt(x, z, r = 0) { let top = 0; for (const c of G.colliders) { if (c
 function heliCabin(H) {
   const g = new THREE.Group(); H.m.root.add(g);
   const body = H.m.root.children[0];
-  G.updaters.push(() => { if (!H.alive) return true; if (body) body.visible = !(P.ride && P.ride.obj === H.m.root); });
+  // inside: the cockpit and cabin are drawn and the outer shell hidden; once he is off, the reverse — the shell closed, nothing of the inside or the gun showing through it
+  G.updaters.push(() => { if (!H.alive) return true; const r = !!(P.ride && P.ride.obj === H.m.root); if (body) body.visible = !r; g.visible = r; if (H.gunPod) H.gunPod.visible = r; });
   const M = (c, r = 0.8, m = 0.1) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
   const shell = M(0x8a908a, 0.85), shellD = M(0x646a64, 0.85), panel = M(0x3e4244, 0.6, 0.15), black = M(0x26282a, 0.7), frame = M(0x50564f, 0.6, 0.3), seat = M(0x3a4038, 0.95), metal = M(0x8a8e8c, 0.4, 0.6);
   const glass = new THREE.MeshStandardMaterial({ color: 0x9ab0b8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.08, depthWrite: false });
@@ -11948,7 +12045,7 @@ defMission({
   env: { sky: [0x7b8ea4, 0xc0bcb0, 0xd0c4b0], glow: 0xffd2a0, glowDir: [0.7, 0.12, 0.3], fog: 0xbcbab4, fogD: 0.0011, hemi: [0xd4dae2, 0x5a5650, 0.95], sun: [0xfff0dc, 1.35], sunDir: [0.75, 0.55, 0.35], exposure: 1.0, viewDist: 900, battle: 0.5, flashes: 0.08, windSnd: 0.25 },
   loadout: { weapons: ['rifle', 'sniper', 'pistol'], nades: 4 },
   bounds: [-3600, -7400, 1400, 600],
-  build(S) { hgCity({ stationDown: true, gate: 'charred', nyDown: true }); G.m10F = m10Gwanghwamun(); },
+  build(S) { hgCity({ stationDown: true, gate: 'charred', nyDown: true }); G.m10F = m10Gwanghwamun(); G.m10Sh = m10Shelter(); },
   phases: [
     /* the ride: 노량진역 → 한강대교 → 한강대로 → 서울역 → 숭례문 → 시청 → 광화문, then down onto the plaza */
     {
@@ -11978,20 +12075,37 @@ defMission({
           const pp = rtAt(T - 296, -24); S.player(pp.x, pp.z, Y);
         });
         followMode(S, ['park', 'han', 'lee', 'yoon']);
+        const D = G.m10Sh; D.activate();
         await S.radio('박도현 중위', '광화문역에 시민들이 숨어 있다. 6주 동안 저 밑에서 버텼어. 우리가 연다.', { dur: 3.6 });
-        // the shelter: open the blast door, and they come up
-        await S.reach(F.doorPos, 4, '광화문역 대피소로');
-        await S.use(F.doorPos, '방폭문 열기');
-        { const g = F.exitG, d = F.door, y0 = d.position.y; SFX.metal(F.doorPos); const k = G.colliders.indexOf(F.doorCol); if (k >= 0) G.colliders.splice(k, 1);
-          S.tween(3, (t) => { d.position.y = y0 + t * 2.9; });
-          for (let i = 0; i < 34; i++) S.later(1.2 + i * 0.35, () => { const p = g.localToWorld(v3(rand(-1.2, 1.2), 0, rand(0.5, 2.5))), q = rtAt(RT.V[4] + 690 + rand(90, 180), rand(-70, -30)); civ(p.x, p.z, { goTo: [q.x, q.z], speed: rand(1.1, 2.0) }); }); }
-        await S.wait(2);
-        await S.sayBg('시민', '국군이다… 국군이 왔어!', { dur: 2.4 }); await S.wait(2.6);
-        await S.say('한지운 하사', '다 나오세요. 이제 괜찮습니다.', { dur: 2.4 });
-        await S.say('윤하린 중사', '소대장님, 옆 기념관에 태극기가 그대로 있답니다. 역무원들이 점령 내내 숨겨 놨다고.', { dur: 3.8 });
+        // the street door
+        await S.reach(D.door1Pos, 4, '광화문역 대피소로');
+        await S.use(D.door1Pos, '방폭문 열기');
+        { const d = D.door1, y0 = d.position.y; SFX.metal(D.door1Pos); const k = G.colliders.indexOf(d.userData.col); if (k >= 0) G.colliders.splice(k, 1); await S.tween(2.6, (t) => { d.position.y = y0 + t * 3.1; }); }
+        await S.say('한지운 하사', '내려간다. 발밑 조심해.', { dur: 2 });
+        await S.reach(D.landing, 2.5, '계단 아래로');
+        await S.reach(D.stairFoot, 2.5, '계단 아래로');
+        await S.reach(D.door2Pos, 3, '대피소 방폭문으로');
+        S.sayBg('윤하린 중사', '안에서… 아이 우는 소리 들립니다.', { dur: 2.6 });
+        await S.use(D.door2Pos, '대피소 방폭문 열기');
+        // the hall: a moment of nothing, then they see the uniforms
+        { const d = D.door2, y0 = d.position.y; SFX.metal(D.door2Pos); const k = G.colliders.indexOf(d.userData.col); if (k >= 0) G.colliders.splice(k, 1); await S.tween(2.4, (t) => { d.position.y = y0 + t * 3.3; }); }
+        await S.say('박도현 중위', '대한민국 국군입니다! 서울… 되찾았습니다!', { dur: 2.8 });
+        await S.wait(0.6);
+        SFX.cheer(D.door2Pos, 5); S.later(1.5, () => SFX.cheer(D.door2Pos, 5));
+        for (const o of D.people) o.cheer = 0.001;
+        S.sayBg('시민', '국군이다… 국군이 왔어!', { dur: 2.4 }); S.later(2.2, () => S.sayBg('시민', '살았다… 살았어!', { dur: 2.2 }));
+        // then they run: out through the passage, up both flights, out of the kiosk and onto the plaza
+        { const route = [v3(D.ex, 0, D.c1 - 0.5), v3(D.ex, 0, D.c0 - 1.5), v3(D.stairFoot.x, 0, D.stairFoot.z), v3(D.landing.x, 0, D.landing.z), v3(D.stairTop.x, 0, D.stairTop.z), v3(D.ex, 0, D.ez + 7)];
+          const out = rtAt(RT.V[4] + 690 + 150, -48);
+          D.people.forEach((o, i) => S.later(2.4 + i * 0.12, () => { o.done = true; const p = o.m.root.position; G.world.remove(o.m.root);
+            const a = civ(p.x, p.z, { goTo: [route[0].x, route[0].z], speed: rand(3.6, 4.8), y: D.FL }); let k = 0;
+            S.every(0.25, () => { if (!a.alive) return true; if (a.goTo && a.pos.distanceTo(v3(a.goTo.x, a.pos.y, a.goTo.z)) > 1.4) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(rand(-0.8, 0.8), 0, 0)); else { const q = v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); return true; } }); })); }
+        await S.wait(3);
+        await S.say('한지운 하사', '천천히! 다 같이 나갈 수 있습니다!', { dur: 2.4 });
+        await S.say('윤하린 중사', '소대장님, 통로 옆 기념관에 태극기가 그대로 있답니다. 역무원들이 점령 내내 숨겨 놨다고.', { dur: 3.8 });
         await S.say('박도현 중위', '서한준. 네가 가져와.', { dur: 2.2 });
-        await S.reach(F.casePos, 3, '광화문역 기념관에서 태극기 꺼내기');
-        await S.use(F.casePos, '태극기 꺼내기'); F.caseFlag.visible = false; SFX.ui(); toast('태극기를 들었다');
+        await S.reach(D.casePos, 2.5, '광화문역 기념관에서 태극기 꺼내기');
+        await S.use(D.casePos, '태극기 꺼내기'); D.caseFlag.visible = false; SFX.ui(); toast('태극기를 들었다');
         await S.say('박도현 중위', '광화문 앞 게양대다. 네 손으로 올려.', { dur: 2.6 });
         // people follow him up the plaza and gather round the pole
         for (const a of G.actors) if (a.alive && a.team === 'civ') { const q = F.poleBase.clone().add(v3(rand(-14, 14), 0, rand(6, 22))); a.goTo = q; a.speed = rand(1.2, 1.8); }

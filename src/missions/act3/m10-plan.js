@@ -79,21 +79,6 @@ function m10Gwanghwamun() {
   const grp = (s, d) => { const q = at(s, d); const g = new THREE.Group(); g.position.set(q.x, 0.3, q.z); g.rotation.y = Y; G.world.add(g); return g; };
   const put = (g, w, h, d, m, x, y, z) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.position.set(x, y, z); me.castShadow = me.receiveShadow = true; g.add(me); return me; };
   const solid = (g, w, h, d, x, z) => { const p = g.localToWorld(v3(x, 0, z)), c = Math.abs(Math.cos(Y)), s = Math.abs(Math.sin(Y)), hx = (w * c + d * s) / 2, hz = (w * s + d * c) / 2; addCollider(p.x - hx, 0, p.z - hz, p.x + hx, h + 0.3, p.z + hz, {}); };
-  // the 광화문역 shelter exit on the west pavement: a granite stair head, a steel blast door across it, the line sign
-  { const g = grp(s0 + 105, -86); g.updateMatrixWorld(); F.exitG = g;
-    put(g, 0.4, 3.2, 8, stone, -2.3, 1.6, 0); put(g, 0.4, 3.2, 8, stone, 2.3, 1.6, 0); put(g, 5, 0.4, 8, stone, 0, 3.4, 0); solid(g, 0.4, 3.2, 8, -2.3, 0); solid(g, 0.4, 3.2, 8, 2.3, 0);
-    F.door = put(g, 4.2, 3.0, 0.25, steel, 0, 1.5, 3.9); F.doorCol = addCollider(...(() => { const p = g.localToWorld(v3(0, 0, 3.9)); return [p.x - 2.2, 0, p.z - 2.2, p.x + 2.2, 3, p.z + 2.2]; })(), {});
-    put(g, 3.8, 0.1, 7, mat('ghStairD', { color: 0x222426, rough: 1 }), 0, 0.06, -0.3);
-    const sign = put(g, 2.6, 0.7, 0.08, mat('ghSign5', { color: 0x8a3fa8, rough: 0.5 }), 0, 3.95, 4.05); sign.material = new THREE.MeshStandardMaterial({ map: canvasTex(256, 70, (c, w, h) => { c.fillStyle = '#8a3fa8'; c.fillRect(0, 0, w, h); c.fillStyle = '#fff'; c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.fillText('5  광화문역', w / 2, 48); }), emissive: 0xffffff, emissiveIntensity: 0.25 });
-    F.doorPos = g.localToWorld(v3(0, 1.2, 5.2)); }
-  // 광화문역 기념관: a small glass pavilion beside it; inside, a glass case with the flag the station kept through the occupation
-  { const g = grp(s0 + 128, -88); g.updateMatrixWorld();
-    for (const [w, h, d, x, z] of [[0.3, 3.6, 10, -4, 0], [0.3, 3.6, 10, 4, 0], [8.3, 3.6, 0.3, 0, -5]]) { put(g, w, h, d, glass, x, 1.8, z); solid(g, w, h, d, x, z); }
-    put(g, 8.6, 0.3, 10.6, steel, 0, 3.75, 0); put(g, 2.9, 3.6, 0.3, glass, -2.6, 1.8, 5); put(g, 2.9, 3.6, 0.3, glass, 2.6, 1.8, 5); solid(g, 2.9, 3.6, 0.3, -2.6, 5); solid(g, 2.9, 3.6, 0.3, 2.6, 5);
-    const lab = put(g, 6, 0.8, 0.08, steel, 0, 4.4, 5.2); lab.material = new THREE.MeshStandardMaterial({ map: canvasTex(384, 64, (c, w, h) => { c.fillStyle = '#1b2a3a'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8e4dc'; c.font = 'bold 36px sans-serif'; c.textAlign = 'center'; c.fillText('광화문역 기념관', w / 2, 46); }), emissive: 0xffffff, emissiveIntensity: 0.2 });
-    put(g, 1.6, 1.0, 1.0, mat('ghCase', { color: 0x3a3028, rough: 0.6 }), 0, 0.5, -2.5); solid(g, 1.6, 1.0, 1.0, 0, -2.5); put(g, 1.5, 0.6, 0.9, glass, 0, 1.3, -2.5);
-    F.caseFlag = put(g, 0.9, 0.12, 0.6, new THREE.MeshStandardMaterial({ map: canvasTex(120, 80, (c, w, h) => drawFlag(c, w, h, 'kr')), roughness: 0.9 }), 0, 1.07, -2.5);
-    F.casePos = g.localToWorld(v3(0, 1.1, -1.4)); }
   // the pole in front of the gate, its halyard waiting
   { const q = at(T - 70, -26); F.poleBase = v3(q.x, 0, q.z); F.poleH = 14;
     addBox(q.x, 0, q.z, 1.6, 0.6, 1.6, mat('ghPoleB', { color: 0xc8c2b6, rough: 0.8 })); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.13, F.poleH, 10), MT.metal()); pole.position.set(q.x, 0.6 + F.poleH / 2, q.z); pole.castShadow = true; G.world.add(pole);

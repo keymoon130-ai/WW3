@@ -23,7 +23,8 @@ function roofAt(x, z, r = 0) { let top = 0; for (const c of G.colliders) { if (c
 function heliCabin(H) {
   const g = new THREE.Group(); H.m.root.add(g);
   const body = H.m.root.children[0];
-  G.updaters.push(() => { if (!H.alive) return true; if (body) body.visible = !(P.ride && P.ride.obj === H.m.root); });
+  // inside: the cockpit and cabin are drawn and the outer shell hidden; once he is off, the reverse — the shell closed, nothing of the inside or the gun showing through it
+  G.updaters.push(() => { if (!H.alive) return true; const r = !!(P.ride && P.ride.obj === H.m.root); if (body) body.visible = !r; g.visible = r; if (H.gunPod) H.gunPod.visible = r; });
   const M = (c, r = 0.8, m = 0.1) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
   const shell = M(0x8a908a, 0.85), shellD = M(0x646a64, 0.85), panel = M(0x3e4244, 0.6, 0.15), black = M(0x26282a, 0.7), frame = M(0x50564f, 0.6, 0.3), seat = M(0x3a4038, 0.95), metal = M(0x8a8e8c, 0.4, 0.6);
   const glass = new THREE.MeshStandardMaterial({ color: 0x9ab0b8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.08, depthWrite: false });
@@ -125,7 +126,7 @@ defMission({
   env: { sky: [0x7b8ea4, 0xc0bcb0, 0xd0c4b0], glow: 0xffd2a0, glowDir: [0.7, 0.12, 0.3], fog: 0xbcbab4, fogD: 0.0011, hemi: [0xd4dae2, 0x5a5650, 0.95], sun: [0xfff0dc, 1.35], sunDir: [0.75, 0.55, 0.35], exposure: 1.0, viewDist: 900, battle: 0.5, flashes: 0.08, windSnd: 0.25 },
   loadout: { weapons: ['rifle', 'sniper', 'pistol'], nades: 4 },
   bounds: [-3600, -7400, 1400, 600],
-  build(S) { hgCity({ stationDown: true, gate: 'charred', nyDown: true }); G.m10F = m10Gwanghwamun(); },
+  build(S) { hgCity({ stationDown: true, gate: 'charred', nyDown: true }); G.m10F = m10Gwanghwamun(); G.m10Sh = m10Shelter(); },
   phases: [
     /* the ride: 노량진역 → 한강대교 → 한강대로 → 서울역 → 숭례문 → 시청 → 광화문, then down onto the plaza */
     {
@@ -155,20 +156,37 @@ defMission({
           const pp = rtAt(T - 296, -24); S.player(pp.x, pp.z, Y);
         });
         followMode(S, ['park', 'han', 'lee', 'yoon']);
+        const D = G.m10Sh; D.activate();
         await S.radio('박도현 중위', '광화문역에 시민들이 숨어 있다. 6주 동안 저 밑에서 버텼어. 우리가 연다.', { dur: 3.6 });
-        // the shelter: open the blast door, and they come up
-        await S.reach(F.doorPos, 4, '광화문역 대피소로');
-        await S.use(F.doorPos, '방폭문 열기');
-        { const g = F.exitG, d = F.door, y0 = d.position.y; SFX.metal(F.doorPos); const k = G.colliders.indexOf(F.doorCol); if (k >= 0) G.colliders.splice(k, 1);
-          S.tween(3, (t) => { d.position.y = y0 + t * 2.9; });
-          for (let i = 0; i < 34; i++) S.later(1.2 + i * 0.35, () => { const p = g.localToWorld(v3(rand(-1.2, 1.2), 0, rand(0.5, 2.5))), q = rtAt(RT.V[4] + 690 + rand(90, 180), rand(-70, -30)); civ(p.x, p.z, { goTo: [q.x, q.z], speed: rand(1.1, 2.0) }); }); }
-        await S.wait(2);
-        await S.sayBg('시민', '국군이다… 국군이 왔어!', { dur: 2.4 }); await S.wait(2.6);
-        await S.say('한지운 하사', '다 나오세요. 이제 괜찮습니다.', { dur: 2.4 });
-        await S.say('윤하린 중사', '소대장님, 옆 기념관에 태극기가 그대로 있답니다. 역무원들이 점령 내내 숨겨 놨다고.', { dur: 3.8 });
+        // the street door
+        await S.reach(D.door1Pos, 4, '광화문역 대피소로');
+        await S.use(D.door1Pos, '방폭문 열기');
+        { const d = D.door1, y0 = d.position.y; SFX.metal(D.door1Pos); const k = G.colliders.indexOf(d.userData.col); if (k >= 0) G.colliders.splice(k, 1); await S.tween(2.6, (t) => { d.position.y = y0 + t * 3.1; }); }
+        await S.say('한지운 하사', '내려간다. 발밑 조심해.', { dur: 2 });
+        await S.reach(D.landing, 2.5, '계단 아래로');
+        await S.reach(D.stairFoot, 2.5, '계단 아래로');
+        await S.reach(D.door2Pos, 3, '대피소 방폭문으로');
+        S.sayBg('윤하린 중사', '안에서… 아이 우는 소리 들립니다.', { dur: 2.6 });
+        await S.use(D.door2Pos, '대피소 방폭문 열기');
+        // the hall: a moment of nothing, then they see the uniforms
+        { const d = D.door2, y0 = d.position.y; SFX.metal(D.door2Pos); const k = G.colliders.indexOf(d.userData.col); if (k >= 0) G.colliders.splice(k, 1); await S.tween(2.4, (t) => { d.position.y = y0 + t * 3.3; }); }
+        await S.say('박도현 중위', '대한민국 국군입니다! 서울… 되찾았습니다!', { dur: 2.8 });
+        await S.wait(0.6);
+        SFX.cheer(D.door2Pos, 5); S.later(1.5, () => SFX.cheer(D.door2Pos, 5));
+        for (const o of D.people) o.cheer = 0.001;
+        S.sayBg('시민', '국군이다… 국군이 왔어!', { dur: 2.4 }); S.later(2.2, () => S.sayBg('시민', '살았다… 살았어!', { dur: 2.2 }));
+        // then they run: out through the passage, up both flights, out of the kiosk and onto the plaza
+        { const route = [v3(D.ex, 0, D.c1 - 0.5), v3(D.ex, 0, D.c0 - 1.5), v3(D.stairFoot.x, 0, D.stairFoot.z), v3(D.landing.x, 0, D.landing.z), v3(D.stairTop.x, 0, D.stairTop.z), v3(D.ex, 0, D.ez + 7)];
+          const out = rtAt(RT.V[4] + 690 + 150, -48);
+          D.people.forEach((o, i) => S.later(2.4 + i * 0.12, () => { o.done = true; const p = o.m.root.position; G.world.remove(o.m.root);
+            const a = civ(p.x, p.z, { goTo: [route[0].x, route[0].z], speed: rand(3.6, 4.8), y: D.FL }); let k = 0;
+            S.every(0.25, () => { if (!a.alive) return true; if (a.goTo && a.pos.distanceTo(v3(a.goTo.x, a.pos.y, a.goTo.z)) > 1.4) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(rand(-0.8, 0.8), 0, 0)); else { const q = v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); return true; } }); })); }
+        await S.wait(3);
+        await S.say('한지운 하사', '천천히! 다 같이 나갈 수 있습니다!', { dur: 2.4 });
+        await S.say('윤하린 중사', '소대장님, 통로 옆 기념관에 태극기가 그대로 있답니다. 역무원들이 점령 내내 숨겨 놨다고.', { dur: 3.8 });
         await S.say('박도현 중위', '서한준. 네가 가져와.', { dur: 2.2 });
-        await S.reach(F.casePos, 3, '광화문역 기념관에서 태극기 꺼내기');
-        await S.use(F.casePos, '태극기 꺼내기'); F.caseFlag.visible = false; SFX.ui(); toast('태극기를 들었다');
+        await S.reach(D.casePos, 2.5, '광화문역 기념관에서 태극기 꺼내기');
+        await S.use(D.casePos, '태극기 꺼내기'); D.caseFlag.visible = false; SFX.ui(); toast('태극기를 들었다');
         await S.say('박도현 중위', '광화문 앞 게양대다. 네 손으로 올려.', { dur: 2.6 });
         // people follow him up the plaza and gather round the pole
         for (const a of G.actors) if (a.alive && a.team === 'civ') { const q = F.poleBase.clone().add(v3(rand(-14, 14), 0, rand(6, 22))); a.goTo = q; a.speed = rand(1.2, 1.8); }

@@ -112,6 +112,8 @@ const SFX = {
   // hand-held illumination rocket: the thump of the launch, the hiss of the motor climbing; then the pop of the candle and parachute up high
   flareLaunch(pos) { const sp = spatial(pos, 25); if (sp.g < 0.03) return; noiseBurst({ dur: 0.09, f: 700, type: 'bandpass', q: 1, gain: 0.7 * sp.g, pan: sp.pan, wet: 0.2 }); noiseBurst({ t: 0.05, dur: 1.8, f: 3200, f2: 1100, type: 'bandpass', q: 0.8, gain: 0.22 * sp.g, pan: sp.pan, wet: 0.3 }); },
   flarePop(pos) { const sp = spatial(pos, 70); if (sp.g < 0.03) return; noiseBurst({ dur: 0.14, f: 420, type: 'lowpass', gain: 0.55 * sp.g, pan: sp.pan, wet: 0.5 }); },
+  // a crowd breaking into cheers: many voices as overlapping vowel-band noise, swelling and falling over a few seconds
+  cheer(pos, dur = 4) { const sp = spatial(pos, 30); if (sp.g < 0.03) return; for (let i = 0; i < 26; i++) { const t = rand(0, dur * 0.7), f = rand(500, 1400); noiseBurst({ t, dur: rand(0.5, 1.4), f, f2: f * rand(0.85, 1.2), type: 'bandpass', q: rand(3, 7), gain: 0.22 * sp.g, att: 0.08, pan: sp.pan + rand(-0.3, 0.3), wet: 0.6 }); } },
   impact(pos) { const sp = spatial(pos, 8); if (sp.g < 0.05) return; noiseBurst({ dur: 0.06, f: 2400, type: 'bandpass', q: 1.5, gain: 0.35 * sp.g, pan: sp.pan, wet: 0.1 }); },
   metal(pos) { const sp = spatial(pos, 10); tone({ dur: 0.18, f: rand(1400, 2400), type: 'triangle', gain: 0.2 * sp.g, pan: sp.pan }); },
   hit() { tone({ dur: 0.06, f: 1800, type: 'square', gain: 0.07, wet: 0 }); noiseBurst({ dur: 0.04, f: 4000, type: 'highpass', gain: 0.12, wet: 0 }); },
