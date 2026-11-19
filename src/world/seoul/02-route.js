@@ -76,13 +76,19 @@ function hgRailway() {
   // 노량진역 and 용산역: island platforms between the lines, canopies (용산역's run on in under the station building)
   const plat = hgMat('rplat', { color: 0xb8b2a6, map: 'concrete' }), roofM = hgMat('rroof', { color: 0x9aa0a4, rough: 0.5, metal: 0.4 }), col = hgMat('rcol', { color: 0x6a7074, rough: 0.5, metal: 0.5 });
   { const pl = [], rf = [], cols = [], pr = [];
-    for (const [z0, z1] of [[420, 230], [-1600, -1880]]) { for (let z = z0; z > z1; z -= 20) { const za = z, zb = Math.max(z - 20, z1), oa = hrOff(za), ob = hrOff(zb);
-        for (const x of HR.xs) { pl.push([hrX(x, za), y0 + 0.55, za, hrX(x, zb), y0 + 0.55, zb, 3.4, 1.1]); if (za < z0 - 10 && zb > z1 + 10) { rf.push([hrX(x, za), y0 + 4.6, za, hrX(x, zb), y0 + 4.6, zb, 5.5, 0.15]);
-          // the steel under the roof sheet: a spine girder and cross purlins every 2.5 m
-          rf.push([hrX(x, za), y0 + 4.35, za, hrX(x, zb), y0 + 4.35, zb, 0.3, 0.4]); for (let zz = za; zz > zb; zz -= 2.5) { const xc = hrX(x, zz); pr.push([xc - 2.7, y0 + 4.45, zz, xc + 2.7, y0 + 4.45, zz, 0.12, 0.22]); } } } }
-      for (let z = z1 + 12; z < z0 - 12; z += 14) for (const x of HR.xs) cols.push([hrX(x, z), y0 + 2.85, z]); }
+    // 노량진: four double tracks; island platforms in the three gaps between them (7.6 m, high-level), and along the westmost track —
+    // the line farthest from the street — the one low-level side platform, the 경부선 one. Nothing on a platform comes within 1.65 m of a track centre.
+    // 용산 keeps its platforms on the line centres. The canopies stop where the 노량진 concourse and its stairs come down (z 336–394).
+    const lay = { ny: [[-128.5, 7.6, 1.1], [-143.5, 7.6, 1.1], [-158.5, 7.6, 1.1], [-172.6, 5.8, 0.6]], ys: HR.xs.map((x) => [x, 3.4, 1.1]) };
+    for (const [z0, z1, key] of [[420, 230, 'ny'], [-1600, -1880, 'ys']]) { for (let z = z0; z > z1; z -= 20) { const za = z, zb = Math.max(z - 20, z1);
+        for (const [x, w, top] of lay[key]) { pl.push([hrX(x, za), y0 + top / 2, za, hrX(x, zb), y0 + top / 2, zb, w, top]);
+          if (za < z0 - 10 && zb > z1 + 10 && !(key === 'ny' && za > 336 && zb < 394)) { const rw = Math.min(5.5, w - 0.6); rf.push([hrX(x, za), y0 + top + 3.5, za, hrX(x, zb), y0 + top + 3.5, zb, rw, 0.15]);
+            // the steel under the roof sheet: a spine girder and cross purlins every 2.5 m
+            rf.push([hrX(x, za), y0 + top + 3.25, za, hrX(x, zb), y0 + top + 3.25, zb, 0.3, 0.4]); for (let zz = za; zz > zb; zz -= 2.5) { const xc = hrX(x, zz); pr.push([xc - rw / 2, y0 + top + 3.35, zz, xc + rw / 2, y0 + top + 3.35, zz, 0.12, 0.22]); } } } }
+      for (let z = z1 + 12; z < z0 - 12; z += 14) for (const [x, , top] of lay[key]) if (!(key === 'ny' && z > 336 && z < 394)) cols.push([hrX(x, z), y0 + top + 1.75, z]); }
     hgBars(pl, 1, plat, { cast: false }); hgBars(rf, 1, roofM); hgBars(pr, 1, col, { cast: false }); hgInst(new THREE.CylinderGeometry(0.14, 0.14, 3.5, 8), col, cols, { cast: false });
-    hgMesh(new THREE.BoxGeometry(70, 3.2, 6), hgMat('fbridge', { color: 0xc8ccce, rough: 0.6 }), -143.5, y0 + 8.2, 365); }
+    // the platforms are solid: you can stand on them and climb onto them only where a person could
+    for (const [x, w, top] of lay.ny) addCollider(x - w / 2, 0, 230, x + w / 2, y0 + top, 420, {}); }
   // trains removed (quality) — hgTrain(); hgMugunghwa();
 }
 /* Korail 312000-series EMU (1호선), ten cars of 19.5 m, stopped on the second bridge: unpainted stainless with the navy/sky-blue band,

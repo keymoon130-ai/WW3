@@ -49,6 +49,7 @@ missions/act2/m6.js
 missions/act2/m7.js
 missions/act2/m8.js
 missions/act2/m7-systems.js
+missions/act2/m7-noryangjin.js
 missions/act3/00-shared-landings.js
 missions/act3/m9-incheon.js
 missions/act3/m9b-goseong.js
@@ -66,4 +67,5 @@ world/seoul/06-ride.js
 missions/sample.js
 world/seoul/07-seoul-station.js
 world/seoul/08-smoke-63.js
+world/seoul/09-noryangjin.js
 boot.js

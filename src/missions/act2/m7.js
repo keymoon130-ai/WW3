@@ -78,7 +78,7 @@ const RX = (x, z) => x + srx(z) + Math.sign(x) * srBump(z) * 15;
 function srPath(x, z0, z1, step = 12) { const out = []; for (let z = z0; z < z1; z += step) out.push(v3(RX(x, z), 0, z)); out.push(v3(RX(x, z1), 0, z1)); return out; }
 const routeY = (x, z) => (Math.abs(x) < 11 && z > SR.river0 - 20 && z < SR.river1 + 20 ? 0 : G.groundAt(x, z));
 function signBoard(x, y, z, text, o = {}) {
-  const t = canvasTex(512, 128, (g, w, h) => { g.fillStyle = o.bg || '#1b3f7a'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.font = `bold ${o.size || 64}px "Noto Sans KR",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 4); if (o.sub) { g.font = '26px sans-serif'; g.fillText(o.sub, w / 2, h - 18); } });
+  const t = canvasTex(512, 128, (g, w, h) => { g.fillStyle = o.bg || '#1b3f7a'; g.fillRect(0, 0, w, h); g.fillStyle = o.fg || '#fff'; g.font = `bold ${o.size || 64}px "Noto Sans KR",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 4); if (o.sub) { g.font = '26px sans-serif'; g.fillText(o.sub, w / 2, h - 18); } });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(o.w || 4, (o.w || 4) / 4), new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.35, side: THREE.DoubleSide })); m.position.set(x, y, z); m.rotation.y = o.ry || 0; G.world.add(m); return m;
 }
 /* traditional gate (숭례문/광화문 style): stone base with an arch, two-tier tiled roof */
@@ -464,33 +464,35 @@ defMission({
         followMode(S, ['lee', 'yoon', 'han']); giveWeapon('rpg', false);
         // the buses carry on south with their people; the K21s pull in to the kerb
         for (const b of G.buses) if (b.alive) { b.path = [v3(b.pos.x, 0, 1200)]; b.pi = 0; b.speed = 9; b.stopped = false; b.o.onArrive = (v) => v.remove(); }
-        await S.say('한지운 하사', '서한준, 내려! 노량진역으로 뛰어!', { dur: 2.2 });
-        // 노량진역: a gap in the railway wall by the platforms, the evacuation train — a 무궁화호 — coming in over 한강철교
-        { const TX = HR.xs[0] + 2.05, ty = HR.deck + 0.35;
-          for (const c of [...G.colliders]) if (Math.abs(c.min.x - (-111.7)) < 0.6 && c.max.z > 600) { const z1 = c.max.z; c.max.z = 250; addCollider(c.min.x, c.min.y, 410, c.max.x, c.max.y, z1, {}); }
-          G.train = []; const zf = []; for (let i = 0; i < 6; i++) { const car = makeCoachMesh(23.5); car.position.set(TX, ty, 0); G.world.add(car); G.train.push(car); zf.push(228 + i * 24.6); }
-          { const loco = makeLocoMesh(); loco.position.set(TX, ty, 0); G.world.add(loco); G.train.push(loco); zf.push(228 + 5 * 24.6 + 22.6); }
-          G.train.forEach((c, i) => (c.position.z = zf[i] - 1000));
-          const strike = S.every(2.2, () => S.arty(P.pos.x + rand(-16, 16), P.pos.z + rand(-34, -10), { dmg: 60 }));
-          S.radio('수도방위사령부', '노량진역, 평택행 무궁화호 임시 열차 진입한다. 서둘러라!', { dur: 3.2 });
-          G.trainIn = false; { let t = 0; G.updaters.push((dt) => { t += dt; const k = 1 - Math.pow(1 - Math.min(1, t / 20), 2.2); G.train.forEach((c, i) => { c.position.z = zf[i] - 1000 * (1 - k); }); if (t >= 20) { G.trainIn = true; return true; } }); }
-          await S.reach([HR.xs[0], 330], 5, '노량진역 승강장으로');
-          S.stop(strike); }
-        S.obj('분대원 집결 대기');
-        { const t0 = G.time; await S.until(() => ['lee', 'yoon', 'han'].every((k) => { const a = S.sq[k]; return !a || !a.alive || a.pos.distanceTo(P.pos) < 9; }) || G.time - t0 > 10); }
-        await S.until(() => G.trainIn);
-        await S.say('한지운 하사', '서한준, 타! 마지막 칸으로!', { dur: 2 });
+        await S.say('한지운 하사', '서한준, 내려! 역사로 들어가, 2층으로 건너간다!', { dur: 2.4 });
+        // the evacuation train — a 무궁화호 — runs in over 한강철교 on the westmost line, to the low platform
+        m7NyTrain();
+        S.radio('수도방위사령부', '노량진역, 평택행 무궁화호 임시 열차 6번 승강장 진입한다. 서둘러라!', { dur: 3.4 });
+        const strike = S.every(2.4, () => { if (P.pos.y < 3 && P.pos.x > NY.xE) S.arty(P.pos.x + rand(-16, 16), P.pos.z + rand(-30, 30), { dmg: 60 }); });
+        const run = m7NyRun(S); // the squad leads through the station; the building comes down behind us
+        await S.reach(v3(-47, 0, 355), 2.6, '노량진역 역사 안으로'); S.stop(strike); run.stage(1);
+        await S.reach(v3(-58, 0, 345.4), 2.6, '계단으로 2층에'); run.stage(2);
+        await S.reach(v3(-76.5, NY.FY, 345.4), 2.6, '2층 맞이방'); run.stage(3);
+        await S.reach(v3(-168, NY.FY, 366), 3, '6번 저상 승강장 — 끝까지 뛰어!');
+        await S.reach(v3(-172.6, 1.2, 386), 2.6, '6번 승강장으로 내려가'); run.stage(4);
+        if (!G.trainIn) { S.obj('열차 진입 대기'); S.say('한지운 하사', '들어온다, 들어와! 문 열리면 바로 타!', { dur: 2.2 }); await S.until(() => G.trainIn); }
+        await S.reach(v3(-170.4, 1.2, 386.9), 1.8, '마지막 칸에 타');
+        run.stop();
         for (const a of aliveEnemies()) a.remove();
         for (const v of G.vehicles) if (v.alive && v.team === 'enemy') { v.remove(); v.alive = false; }
         await S.cut(async () => {
           const tr = G.train, car = tr[0]; for (const k of ['lee', 'yoon', 'han']) { const a = S.sq[k]; if (a) a.remove(); }
-          S.camFov(58); S.music('sad'); S.env({ fog: 0x2a1c18, fogD: 0.0009, viewDist: 900 });
-          // from the back of the last car, looking north over 한강철교 at the city as the train pulls south
-          const at = () => v3(car.position.x, 2.9, car.position.z - 12.4);
-          await S.cam(at(), at().add(v3(10, 8, -160)), 0);
-          let t = 0; G.updaters.push((dt) => { if (!G.cut) return true; t += dt; const sp = Math.min(12, t * 1.1); for (const c of tr) c.position.z += sp * dt; G.cut.pos.copy(at()); G.cut.look.copy(at().add(v3(14, 10 + t * 0.3, -160))); });
-          for (let i = 0; i < 10; i++) S.later(0.8 + i * 1.1, () => { const p = v3(rand(-500, 400), rand(0, 30), rand(-1900, -1100)); explode(p, { noPlayer: true, size: rand(3, 5), dmg: 0, vdmg: 0 }); addEmitter(p, 'smoke', 3, 2, 60); });
-          S.later(2, () => m7Formation({ from: v3(700, 0, -1350), to: v3(-1000, 0, -1450), alt: 170, n: 3, kind: 'V' }));
+          S.music('sad'); S.env({ fog: 0x2a1c18, fogD: 0.0009, viewDist: 900 });
+          // out of his own eyes onto the gangway at the back of the last car: one move, the way he would turn round in the doorway
+          const at = () => v3(car.position.x - 0.2, 2.95, car.position.z - 12.3), look = () => at().add(v3(6, 6, -160));
+          S.later(0.2, () => S.camFov(60)); await S.cam(at(), look(), 1.7);
+          // the slack runs out down the train, then it pulls away south; behind, the concourse comes down onto the tracks
+          let t = 0; G.updaters.push((dt) => { if (!G.cut) return true; t += dt; const sp = t < 0.6 ? t * 0.4 : Math.min(12, 0.24 + (t - 0.6) * 0.95); for (const c of tr) c.position.z += sp * dt; G.cut.pos.copy(at()); G.cut.look.copy(at().add(v3(6 + t * 0.05, 6 + t * 0.25, -160))); });
+          S.later(0.4, () => { SFX.metal(v3(car.position.x, 2, car.position.z)); G.shake += 0.15; });
+          S.later(2.2, () => m7NyFallAll());
+          for (let i = 0; i < 10; i++) S.later(4 + i * 1.1, () => { const p = v3(rand(-500, 400), rand(0, 30), rand(-1900, -1100)); explode(p, { noPlayer: true, size: rand(3, 5), dmg: 0, vdmg: 0 }); addEmitter(p, 'smoke', 3, 2, 60); });
+          S.later(5, () => m7Formation({ from: v3(700, 0, -1350), to: v3(-1000, 0, -1450), alt: 170, n: 3, kind: 'V' }));
+          await S.wait(3.2);
           await S.say('리선우 병장', '…불타고 있슴다. 서울 전체가.', { dur: 3 });
           await S.say('서한준', '어머니… 저기 계신데.', { dur: 2.6 });
           await S.radio('수도방위사령부', '…전 부대에 알린다.', { dur: 2.5 });

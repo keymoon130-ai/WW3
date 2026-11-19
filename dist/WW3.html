@@ -9606,7 +9606,7 @@ const RX = (x, z) => x + srx(z) + Math.sign(x) * srBump(z) * 15;
 function srPath(x, z0, z1, step = 12) { const out = []; for (let z = z0; z < z1; z += step) out.push(v3(RX(x, z), 0, z)); out.push(v3(RX(x, z1), 0, z1)); return out; }
 const routeY = (x, z) => (Math.abs(x) < 11 && z > SR.river0 - 20 && z < SR.river1 + 20 ? 0 : G.groundAt(x, z));
 function signBoard(x, y, z, text, o = {}) {
-  const t = canvasTex(512, 128, (g, w, h) => { g.fillStyle = o.bg || '#1b3f7a'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.font = `bold ${o.size || 64}px "Noto Sans KR",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 4); if (o.sub) { g.font = '26px sans-serif'; g.fillText(o.sub, w / 2, h - 18); } });
+  const t = canvasTex(512, 128, (g, w, h) => { g.fillStyle = o.bg || '#1b3f7a'; g.fillRect(0, 0, w, h); g.fillStyle = o.fg || '#fff'; g.font = `bold ${o.size || 64}px "Noto Sans KR",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 4); if (o.sub) { g.font = '26px sans-serif'; g.fillText(o.sub, w / 2, h - 18); } });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(o.w || 4, (o.w || 4) / 4), new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.35, side: THREE.DoubleSide })); m.position.set(x, y, z); m.rotation.y = o.ry || 0; G.world.add(m); return m;
 }
 /* traditional gate (숭례문/광화문 style): stone base with an arch, two-tier tiled roof */
@@ -9992,33 +9992,35 @@ defMission({
         followMode(S, ['lee', 'yoon', 'han']); giveWeapon('rpg', false);
         // the buses carry on south with their people; the K21s pull in to the kerb
         for (const b of G.buses) if (b.alive) { b.path = [v3(b.pos.x, 0, 1200)]; b.pi = 0; b.speed = 9; b.stopped = false; b.o.onArrive = (v) => v.remove(); }
-        await S.say('한지운 하사', '서한준, 내려! 노량진역으로 뛰어!', { dur: 2.2 });
-        // 노량진역: a gap in the railway wall by the platforms, the evacuation train — a 무궁화호 — coming in over 한강철교
-        { const TX = HR.xs[0] + 2.05, ty = HR.deck + 0.35;
-          for (const c of [...G.colliders]) if (Math.abs(c.min.x - (-111.7)) < 0.6 && c.max.z > 600) { const z1 = c.max.z; c.max.z = 250; addCollider(c.min.x, c.min.y, 410, c.max.x, c.max.y, z1, {}); }
-          G.train = []; const zf = []; for (let i = 0; i < 6; i++) { const car = makeCoachMesh(23.5); car.position.set(TX, ty, 0); G.world.add(car); G.train.push(car); zf.push(228 + i * 24.6); }
-          { const loco = makeLocoMesh(); loco.position.set(TX, ty, 0); G.world.add(loco); G.train.push(loco); zf.push(228 + 5 * 24.6 + 22.6); }
-          G.train.forEach((c, i) => (c.position.z = zf[i] - 1000));
-          const strike = S.every(2.2, () => S.arty(P.pos.x + rand(-16, 16), P.pos.z + rand(-34, -10), { dmg: 60 }));
-          S.radio('수도방위사령부', '노량진역, 평택행 무궁화호 임시 열차 진입한다. 서둘러라!', { dur: 3.2 });
-          G.trainIn = false; { let t = 0; G.updaters.push((dt) => { t += dt; const k = 1 - Math.pow(1 - Math.min(1, t / 20), 2.2); G.train.forEach((c, i) => { c.position.z = zf[i] - 1000 * (1 - k); }); if (t >= 20) { G.trainIn = true; return true; } }); }
-          await S.reach([HR.xs[0], 330], 5, '노량진역 승강장으로');
-          S.stop(strike); }
-        S.obj('분대원 집결 대기');
-        { const t0 = G.time; await S.until(() => ['lee', 'yoon', 'han'].every((k) => { const a = S.sq[k]; return !a || !a.alive || a.pos.distanceTo(P.pos) < 9; }) || G.time - t0 > 10); }
-        await S.until(() => G.trainIn);
-        await S.say('한지운 하사', '서한준, 타! 마지막 칸으로!', { dur: 2 });
+        await S.say('한지운 하사', '서한준, 내려! 역사로 들어가, 2층으로 건너간다!', { dur: 2.4 });
+        // the evacuation train — a 무궁화호 — runs in over 한강철교 on the westmost line, to the low platform
+        m7NyTrain();
+        S.radio('수도방위사령부', '노량진역, 평택행 무궁화호 임시 열차 6번 승강장 진입한다. 서둘러라!', { dur: 3.4 });
+        const strike = S.every(2.4, () => { if (P.pos.y < 3 && P.pos.x > NY.xE) S.arty(P.pos.x + rand(-16, 16), P.pos.z + rand(-30, 30), { dmg: 60 }); });
+        const run = m7NyRun(S); // the squad leads through the station; the building comes down behind us
+        await S.reach(v3(-47, 0, 355), 2.6, '노량진역 역사 안으로'); S.stop(strike); run.stage(1);
+        await S.reach(v3(-58, 0, 345.4), 2.6, '계단으로 2층에'); run.stage(2);
+        await S.reach(v3(-76.5, NY.FY, 345.4), 2.6, '2층 맞이방'); run.stage(3);
+        await S.reach(v3(-168, NY.FY, 366), 3, '6번 저상 승강장 — 끝까지 뛰어!');
+        await S.reach(v3(-172.6, 1.2, 386), 2.6, '6번 승강장으로 내려가'); run.stage(4);
+        if (!G.trainIn) { S.obj('열차 진입 대기'); S.say('한지운 하사', '들어온다, 들어와! 문 열리면 바로 타!', { dur: 2.2 }); await S.until(() => G.trainIn); }
+        await S.reach(v3(-170.4, 1.2, 386.9), 1.8, '마지막 칸에 타');
+        run.stop();
         for (const a of aliveEnemies()) a.remove();
         for (const v of G.vehicles) if (v.alive && v.team === 'enemy') { v.remove(); v.alive = false; }
         await S.cut(async () => {
           const tr = G.train, car = tr[0]; for (const k of ['lee', 'yoon', 'han']) { const a = S.sq[k]; if (a) a.remove(); }
-          S.camFov(58); S.music('sad'); S.env({ fog: 0x2a1c18, fogD: 0.0009, viewDist: 900 });
-          // from the back of the last car, looking north over 한강철교 at the city as the train pulls south
-          const at = () => v3(car.position.x, 2.9, car.position.z - 12.4);
-          await S.cam(at(), at().add(v3(10, 8, -160)), 0);
-          let t = 0; G.updaters.push((dt) => { if (!G.cut) return true; t += dt; const sp = Math.min(12, t * 1.1); for (const c of tr) c.position.z += sp * dt; G.cut.pos.copy(at()); G.cut.look.copy(at().add(v3(14, 10 + t * 0.3, -160))); });
-          for (let i = 0; i < 10; i++) S.later(0.8 + i * 1.1, () => { const p = v3(rand(-500, 400), rand(0, 30), rand(-1900, -1100)); explode(p, { noPlayer: true, size: rand(3, 5), dmg: 0, vdmg: 0 }); addEmitter(p, 'smoke', 3, 2, 60); });
-          S.later(2, () => m7Formation({ from: v3(700, 0, -1350), to: v3(-1000, 0, -1450), alt: 170, n: 3, kind: 'V' }));
+          S.music('sad'); S.env({ fog: 0x2a1c18, fogD: 0.0009, viewDist: 900 });
+          // out of his own eyes onto the gangway at the back of the last car: one move, the way he would turn round in the doorway
+          const at = () => v3(car.position.x - 0.2, 2.95, car.position.z - 12.3), look = () => at().add(v3(6, 6, -160));
+          S.later(0.2, () => S.camFov(60)); await S.cam(at(), look(), 1.7);
+          // the slack runs out down the train, then it pulls away south; behind, the concourse comes down onto the tracks
+          let t = 0; G.updaters.push((dt) => { if (!G.cut) return true; t += dt; const sp = t < 0.6 ? t * 0.4 : Math.min(12, 0.24 + (t - 0.6) * 0.95); for (const c of tr) c.position.z += sp * dt; G.cut.pos.copy(at()); G.cut.look.copy(at().add(v3(6 + t * 0.05, 6 + t * 0.25, -160))); });
+          S.later(0.4, () => { SFX.metal(v3(car.position.x, 2, car.position.z)); G.shake += 0.15; });
+          S.later(2.2, () => m7NyFallAll());
+          for (let i = 0; i < 10; i++) S.later(4 + i * 1.1, () => { const p = v3(rand(-500, 400), rand(0, 30), rand(-1900, -1100)); explode(p, { noPlayer: true, size: rand(3, 5), dmg: 0, vdmg: 0 }); addEmitter(p, 'smoke', 3, 2, 60); });
+          S.later(5, () => m7Formation({ from: v3(700, 0, -1350), to: v3(-1000, 0, -1450), alt: 170, n: 3, kind: 'V' }));
+          await S.wait(3.2);
           await S.say('리선우 병장', '…불타고 있슴다. 서울 전체가.', { dur: 3 });
           await S.say('서한준', '어머니… 저기 계신데.', { dur: 2.6 });
           await S.radio('수도방위사령부', '…전 부대에 알린다.', { dur: 2.5 });
@@ -10423,6 +10425,101 @@ function m7SubwayExit(x, z, yaw, side) {
   const pole = add(new THREE.CylinderGeometry(0.07, 0.07, 3.2, 8), steel, 2.3, 1.6, 3.4);
   for (const [col, y] of [[0x0052a4, 2.95], [0x00a84d, 2.45]]) { const d = add(new THREE.CylinderGeometry(0.28, 0.28, 0.06, 18), mat('line' + col, { color: col, rough: 0.5 }), 2.3, y, 3.4); d.rotation.x = Math.PI / 2; }
   const c = Math.abs(Math.cos(yaw)), s = Math.abs(Math.sin(yaw)), hx = 2.0 * c + 3.6 * s, hz = 2.0 * s + 3.6 * c; addCollider(x - hx, g.position.y, z - hz, x + hx, g.position.y + 1.0, z + hz);
+}
+
+/* ========== 「남쪽으로」 the end at 노량진역 ==========
+   Off the K21, in through the street door, up the stair, along the concourse over the tracks while its roof comes down behind,
+   down onto the low platform at the far end and onto the last car of the 무궁화호. The building (NY.*) is hgNoryangjin's. */
+
+/* the evacuation train: five coaches and a diesel at the front (south), on the westmost line beside the low platform,
+   the back of the last coach just past the foot of the platform stair; it runs in over 한강철교 in about 22 s */
+function m7NyTrain() {
+  const TX = -168.05, ty = HR.deck + 0.35, zLast = 397;
+  G.train = []; const zf = [];
+  for (let i = 0; i < 6; i++) { const car = makeCoachMesh(23.5); car.position.set(TX, ty, 0); G.world.add(car); G.train.push(car); zf.push(zLast + i * 24.6); }
+  { const loco = makeLocoMesh(); loco.position.set(TX, ty, 0); G.world.add(loco); G.train.push(loco); zf.push(zLast + 5 * 24.6 + 22.6); }
+  G.train.forEach((c, i) => (c.position.z = zf[i] - 1000));
+  G.trainIn = false; let t = 0;
+  G.updaters.push((dt) => { if (G.mode !== 'play') return; t += dt; const k = 1 - Math.pow(1 - Math.min(1, t / 22), 2.2); G.train.forEach((c, i) => { c.position.z = zf[i] - 1000 * (1 - k); }); if (t >= 22) { G.trainIn = true; return true; } });
+}
+
+/* the run through the station. stage(n) is called as the player reaches each point:
+   1 inside the street door — a bomb on the forecourt brings the front down behind him;
+   2 on the stair — plaster and dust coming out of the ceiling;
+   3 on the concourse — the roof starts falling in, bay after bay, from the street end west at 4 m/s: stay ahead of it;
+   4 on the platform — the last bays go; what is left of the concourse waits for the train to leave */
+function m7NyRun(S) {
+  const R = { st: 0, front: null, t0: 0, rubble: [], live: true };
+  // the squad goes first: 한지운 leads, the other two on his heels; they hold at the door and the stair foot for the rookie, never on the concourse
+  const lane = { han: 0, lee: -1.4, yoon: 1.4 };
+  for (const k of ['han', 'lee', 'yoon']) { const a = S.sq[k]; if (!a) continue; const o = lane[k];
+    a.follow = null; a.goal = null; a.hold = false; a.speed = 5.6; a.noShoot = true;
+    const near = (x, z, r) => () => Math.hypot(P.pos.x - x, P.pos.z - z) < r;
+    a.route = { i: 0, pts: [
+      { x: -36, z: 355 + o, run: true }, { x: -50, z: 355 + o, run: true, until: near(-50, 355, 12) },
+      { x: -56, z: 345.4 + o * 0.6, run: true, until: near(-56, 345, 9) }, { x: -79, z: 345.4 + o * 0.6, run: true },
+      { x: -84, z: 360 + o * 0.4, run: true }, { x: -92, z: 360 + o * 0.4, run: true }, { x: -166, z: 366 + o, run: true },
+      { x: -172.6 + o * 0.5, z: 371.5, run: true }, { x: -172.6 + o * 0.5, z: 385.5, run: true }, { x: -170.6, z: 388.2 + (o + 1.4) * 0.9, run: true } ],
+      done: () => { a.wantCrouch = false; a.board = true; } }; }
+  const lobbyFx = () => { const p = v3(rand(-76, -50), NY.FY - 0.7, rand(NY.z0 + 1, NY.z1 - 1)); for (let i = 0; i < 5; i++) particle({ x: p.x + rand(-0.4, 0.4), y: p.y, z: p.z + rand(-0.4, 0.4), vy: -rand(0.5, 2), life: rand(1.2, 2.2), size: 0.12, size1: 0.08, alpha: 0.9, color: [0.82, 0.8, 0.76], grav: 9.8 }); FX.dust(p, 4, [0.8, 0.78, 0.74], 0.6); };
+  // squadmates who reached the door step aboard
+  S.every(0.3, () => { if (!R.live) return true; for (const k of ['han', 'lee', 'yoon']) { const a = S.sq[k]; if (a && a.alive && a.board && G.trainIn) { a.remove(); S.sq[k] = null; } } });
+  R.stage = (n) => {
+    R.st = n;
+    if (n === 1) { // the front of the building behind him
+      explode(v3(-34, 0.8, 355), { noPlayer: true, size: 4.2, dmg: 0, vdmg: 0, radius: 1 }); G.shake += 0.7; SFX.explosion(v3(-34, 1, 355), 1.3);
+      S.later(0.35, () => { m7NyRubble(-45.6, -39.5, 349.5, 360.5, 3.4, R); FX.dust(v3(-44, 1.5, 355), 30, [0.7, 0.68, 0.62], 1.6); addEmitter(v3(-42, 1, 355), 'smoke', 1.4, 3, 20); });
+      S.later(0.8, () => S.say('윤하린 중사', '입구 무너졌어! 위로, 위로!', { dur: 2 }));
+      const fx = S.every(0.6, () => { if (R.st > 3 || !R.live) return true; if (P.pos.x < -40 && P.pos.x > -82) lobbyFx(); });
+    }
+    if (n === 2) { S.later(0.5, () => { G.shake += 0.3; SFX.crackle(v3(-66, NY.FY, 352)); }); }
+    if (n === 3) { // the roof goes, bay by bay, from the street end
+      R.t0 = G.time + 2.5; S.later(0.6, () => S.say('한지운 하사', '지붕 내려앉는다! 뛰어! 멈추지 마!', { dur: 2.2 })); SFX.crackle(v3(-60, NY.FY + 4, 357));
+      G.updaters.push(() => { if (!R.live || G.mode !== 'play') return true; if (G.time < R.t0) return; R.front = -58 - 4.0 * (G.time - R.t0);
+        for (const r of NY.roof) { if (r.userData.fallen) continue; const x = r.position.x; if (x > R.front + 1.5) m7NyDropRoof(r, R); else if (!r.userData.warned && x > R.front - 7) { r.userData.warned = true; SFX.crackle(r.position); for (let i = 0; i < 8; i++) particle({ x: x + rand(-3, 3), y: NY.RY - 0.2, z: rand(NY.z0, NY.z1), vy: -1, life: 1.6, size: 0.1, size1: 0.07, alpha: 0.9, color: [0.8, 0.78, 0.74], grav: 9.8 }); } }
+        if (P.alive && P.pos.y > NY.FY - 1.2 && P.pos.x > R.front + 1.2 && P.pos.z > NY.z0 && P.pos.z < NY.z1) failMission('무너지는 역사 지붕에 깔렸다 — 멈추지 말고 뛰어야 한다');
+        if (R.front < NY.xW - 6) return true; });
+    }
+  };
+  R.stop = () => { R.live = false; };
+  return R;
+}
+/* a heap of broken tile and concrete, solid to walk into, its top a little lower than it looks */
+function m7NyRubble(x0, x1, z0, z1, h, R, y0 = 0) {
+  const m = mat('nyRub', { color: 0x9c958a, rough: 1 }), md = mat('nyRubD', { color: 0x5a554e, rough: 1 }), g = new THREE.Group(); G.world.add(g);
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0;
+  for (let i = 0; i < 26; i++) { const s = rand(0.4, 1.6), u = Math.random(), v = Math.random(), hh = h * (1 - Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 1.4) * rand(0.5, 1);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(s * rand(0.8, 2.2), s * 0.5, s * rand(0.8, 1.6)), Math.random() < 0.3 ? md : m); b.position.set(x0 + u * w, y0 + Math.max(0.2, hh), z0 + v * d); b.rotation.set(rand(-0.6, 0.6), rand(0, TAU), rand(-0.6, 0.6)); b.castShadow = b.receiveShadow = true; g.add(b); }
+  const c = addCollider(x0 + 0.3, y0, z0 + 0.3, x1 - 0.3, y0 + h * 0.85, z1 - 0.3, {}); if (R) R.rubble.push(c); g.userData.col = c; return g;
+}
+/* one roof bay comes down onto the concourse floor: it hangs a moment on one side, tears, drops; the walls either side go with it */
+function m7NyDropRoof(r, R) {
+  r.userData.fallen = true; const x = r.position.x, side = Math.random() < 0.5 ? 1 : -1; let vy = 0, t = 0, landed = false;
+  for (const l of G.world.children) if (l.userData.lampOf === r) l.visible = false;
+  G.updaters.push((dt) => { t += dt; if (t < 0.25) { r.rotation.x += side * dt * 0.25; return; } vy -= 9.8 * dt; r.position.y += vy * dt; r.rotation.x += side * dt * 0.18; r.rotation.z += dt * 0.05;
+    if (!landed && r.position.y <= NY.FY + 0.6) { landed = true; r.position.y = NY.FY + 0.6; const p = v3(x, NY.FY + 1, (NY.z0 + NY.z1) / 2);
+      FX.dust(p, 40, [0.72, 0.7, 0.65], 2.2); addEmitter(p, 'smoke', 2.2, 3, 14); if (Math.random() < 0.4) addEmitter(p.clone().add(v3(rand(-2, 2), 0, rand(-8, 8))), 'fire', 1.1, 10, 40);
+      SFX.explosion(p, 0.7); G.shake += Math.max(0, 0.6 - P.pos.distanceTo(p) / 60);
+      R.rubble.push(addCollider(x - 3, NY.FY, NY.z0, x + 3, NY.FY + 1.6, NY.z1, {})); r.userData.restCol = R.rubble[R.rubble.length - 1];
+      for (const w of NY.wall) if (!w.userData.fallen && Math.abs(w.position.x - x) < 3.1) m7NyDropWall(w);
+      return true; } });
+}
+function m7NyDropWall(w) {
+  w.userData.fallen = true; if (w.userData.col) { const i = G.colliders.indexOf(w.userData.col); if (i >= 0) G.colliders.splice(i, 1); w.userData.col = null; }
+  const out = w.position.z < (NY.z0 + NY.z1) / 2 ? -1 : 1; let vy = 0, vz = out * rand(0.5, 1.5);
+  G.updaters.push((dt) => { vy -= 9.8 * dt; w.position.y += vy * dt; w.position.z += vz * dt; w.rotation.x += out * dt * 0.9; if (w.position.y < -2) { w.visible = false; return true; } });
+}
+/* after the train pulls out: the whole concourse over the tracks goes — floor bays, what is left of the roof, the walls — onto the rails */
+function m7NyFallAll() {
+  const pieces = [...NY.floor, ...NY.roof, ...NY.wall].filter((m) => m.position.x < -111 && m.visible).sort((a, b) => b.position.x - a.position.x);
+  pieces.forEach((m, i) => setGameTimeout(() => {
+    if (m.userData.col) { const k = G.colliders.indexOf(m.userData.col); if (k >= 0) G.colliders.splice(k, 1); m.userData.col = null; }
+    if (m.userData.restCol) { const k = G.colliders.indexOf(m.userData.restCol); if (k >= 0) G.colliders.splice(k, 1); }
+    let vy = -rand(0, 1), t = 0; const rx = rand(-0.4, 0.4), rz = rand(-0.25, 0.25), floorY = HR.deck + 0.6 + rand(0, 1.2);
+    G.updaters.push((dt) => { t += dt; vy -= 9.8 * dt; m.position.y += vy * dt; m.rotation.x += rx * dt; m.rotation.z += rz * dt;
+      if (m.position.y <= floorY) { m.position.y = floorY; if (Math.random() < 0.5) { const p = m.position.clone(); FX.dust(p, 30, [0.7, 0.68, 0.64], 2.4); addEmitter(p, 'smoke', 2.6, 3, 30); } return true; } });
+    if (i % 4 === 0) SFX.explosion(m.position, 0.9);
+  }, 0.12 * Math.floor(i / 2)));
 }
 
 /* =========================================================
@@ -12823,13 +12920,19 @@ function hgRailway() {
   // 노량진역 and 용산역: island platforms between the lines, canopies (용산역's run on in under the station building)
   const plat = hgMat('rplat', { color: 0xb8b2a6, map: 'concrete' }), roofM = hgMat('rroof', { color: 0x9aa0a4, rough: 0.5, metal: 0.4 }), col = hgMat('rcol', { color: 0x6a7074, rough: 0.5, metal: 0.5 });
   { const pl = [], rf = [], cols = [], pr = [];
-    for (const [z0, z1] of [[420, 230], [-1600, -1880]]) { for (let z = z0; z > z1; z -= 20) { const za = z, zb = Math.max(z - 20, z1), oa = hrOff(za), ob = hrOff(zb);
-        for (const x of HR.xs) { pl.push([hrX(x, za), y0 + 0.55, za, hrX(x, zb), y0 + 0.55, zb, 3.4, 1.1]); if (za < z0 - 10 && zb > z1 + 10) { rf.push([hrX(x, za), y0 + 4.6, za, hrX(x, zb), y0 + 4.6, zb, 5.5, 0.15]);
-          // the steel under the roof sheet: a spine girder and cross purlins every 2.5 m
-          rf.push([hrX(x, za), y0 + 4.35, za, hrX(x, zb), y0 + 4.35, zb, 0.3, 0.4]); for (let zz = za; zz > zb; zz -= 2.5) { const xc = hrX(x, zz); pr.push([xc - 2.7, y0 + 4.45, zz, xc + 2.7, y0 + 4.45, zz, 0.12, 0.22]); } } } }
-      for (let z = z1 + 12; z < z0 - 12; z += 14) for (const x of HR.xs) cols.push([hrX(x, z), y0 + 2.85, z]); }
+    // 노량진: four double tracks; island platforms in the three gaps between them (7.6 m, high-level), and along the westmost track —
+    // the line farthest from the street — the one low-level side platform, the 경부선 one. Nothing on a platform comes within 1.65 m of a track centre.
+    // 용산 keeps its platforms on the line centres. The canopies stop where the 노량진 concourse and its stairs come down (z 336–394).
+    const lay = { ny: [[-128.5, 7.6, 1.1], [-143.5, 7.6, 1.1], [-158.5, 7.6, 1.1], [-172.6, 5.8, 0.6]], ys: HR.xs.map((x) => [x, 3.4, 1.1]) };
+    for (const [z0, z1, key] of [[420, 230, 'ny'], [-1600, -1880, 'ys']]) { for (let z = z0; z > z1; z -= 20) { const za = z, zb = Math.max(z - 20, z1);
+        for (const [x, w, top] of lay[key]) { pl.push([hrX(x, za), y0 + top / 2, za, hrX(x, zb), y0 + top / 2, zb, w, top]);
+          if (za < z0 - 10 && zb > z1 + 10 && !(key === 'ny' && za > 336 && zb < 394)) { const rw = Math.min(5.5, w - 0.6); rf.push([hrX(x, za), y0 + top + 3.5, za, hrX(x, zb), y0 + top + 3.5, zb, rw, 0.15]);
+            // the steel under the roof sheet: a spine girder and cross purlins every 2.5 m
+            rf.push([hrX(x, za), y0 + top + 3.25, za, hrX(x, zb), y0 + top + 3.25, zb, 0.3, 0.4]); for (let zz = za; zz > zb; zz -= 2.5) { const xc = hrX(x, zz); pr.push([xc - rw / 2, y0 + top + 3.35, zz, xc + rw / 2, y0 + top + 3.35, zz, 0.12, 0.22]); } } } }
+      for (let z = z1 + 12; z < z0 - 12; z += 14) for (const [x, , top] of lay[key]) if (!(key === 'ny' && z > 336 && z < 394)) cols.push([hrX(x, z), y0 + top + 1.75, z]); }
     hgBars(pl, 1, plat, { cast: false }); hgBars(rf, 1, roofM); hgBars(pr, 1, col, { cast: false }); hgInst(new THREE.CylinderGeometry(0.14, 0.14, 3.5, 8), col, cols, { cast: false });
-    hgMesh(new THREE.BoxGeometry(70, 3.2, 6), hgMat('fbridge', { color: 0xc8ccce, rough: 0.6 }), -143.5, y0 + 8.2, 365); }
+    // the platforms are solid: you can stand on them and climb onto them only where a person could
+    for (const [x, w, top] of lay.ny) addCollider(x - w / 2, 0, 230, x + w / 2, y0 + top, 420, {}); }
   // trains removed (quality) — hgTrain(); hgMugunghwa();
 }
 /* Korail 312000-series EMU (1호선), ten cars of 19.5 m, stopped on the second bridge: unpainted stainless with the navy/sky-blue band,
@@ -13441,7 +13544,7 @@ function hgWar() {
 /* ---------- the whole city as one build, shared by the sample and the two Seoul missions ---------- */
 function hgCity(o = {}) {
   G.groundAt = hgGround; G.waterY = HG.water;
-  hgRiver(); hgYeouido(); hgBridge(); hgAvenue(); hgBlocks(); hgYongsan(); hgRoute(); hgSeoulStation(); hgSungnyemun(); hgCityHall(); hgGwanghwamun(); hg63(o.tower63 || 'charred');
+  hgRiver(); hgYeouido(); hgBridge(); hgAvenue(); hgBlocks(); hgYongsan(); hgRoute(); hgNoryangjin(); hgSeoulStation(); hgSungnyemun(); hgCityHall(); hgGwanghwamun(); hg63(o.tower63 || 'charred');
   if (o.war !== false) hgWar();
   if (o.stationDown) hgStationFall(true);
   if (o.gate) hgGateFire(o.gate);
@@ -14538,6 +14641,107 @@ function hg63(state = 'charred') {
     hgSmokeCol(spot('s', 0.45, 122, 8), { h: 600, r: 44, n: 22, period: 40, drift: [0.6, -0.3], color: new THREE.Color(0x24201c), op: 0.8 });
   } else hgSmokeCol(spot('f', 0.25, 192, 4), { h: 420, r: 22, n: 14, period: 50, drift: [0.45, -0.3], color: new THREE.Color(0x5a5650).lerp(fogC, k * 0.5), op: 0.4 });
 }
+
+/* ================= 노량진역, from the street photo and the aerial map =================
+   The street building stands on the forecourt beside 노량진로: cream ceramic tile, a green-glazed stair tower with the name on top,
+   a double-height lobby inside with one long stair up. From its first floor the concourse runs west over all four double tracks,
+   and a stair drops from its south side onto each platform — the last of them onto the low side platform along the westmost line,
+   the only low-level platform at 노량진 (the 경부선 one).
+   Game frame: the street is x ≈ 0 (north is -z), the railway corridor x -111.5 … -175.5, the platforms z 230 … 420.
+   The roof, the wall panels and the floor over the tracks are kept as separate pieces (NY.roof / NY.wall / NY.floor) so 「남쪽으로」 can bring them down. */
+const NY = { z0: 342, z1: 372, xE: -46, xW: -176, lobW: -80, FY: 8.6, RY: 13.6, stairX: [-57, -77], stairZ: [342.6, 348.2], platStairs: [[-128.5, 1.7], [-143.5, 1.7], [-158.5, 1.7], [-172.6, 1.2]], gateX: -88, roof: [], wall: [], floor: [] };
+function hgNoryangjin() {
+  NY.roof = []; NY.wall = []; NY.floor = [];
+  const tile = hgMat('nyTile', { color: 0xe6e1d6, map: 'concrete', rough: 0.7 }), tileD = hgMat('nyTileD', { color: 0xcfc8ba, map: 'concrete', rough: 0.75 });
+  const green = hgMat('nyGreen', { color: 0x3f9a7a, rough: 0.12, metal: 0.35, transparent: true, opacity: 0.72 }), glass = hgMat('nyGlass', { color: 0x8ea8b2, rough: 0.08, metal: 0.3, transparent: true, opacity: 0.4 });
+  const steel = hgMat('nySteel', { color: 0x5a6066, rough: 0.45, metal: 0.6 }), floorM = hgMat('nyFloor', { color: 0xb9b3a8, map: 'concrete', rough: 0.8 }), ceil = hgMat('nyCeil', { color: 0xd8d6d0, rough: 0.9 });
+  const stepM = hgMat('nyStep', { color: 0x9c968c, map: 'concrete', rough: 0.85 }), nose = hgMat('nyNose', { color: 0xc8a030, rough: 0.6 }), dark = hgMat('nyDark', { color: 0x1d2226, rough: 0.6 });
+  const lamp = basicMat('nyLamp', 0xfff4e0);
+  // a box from corner to corner: static (merged) unless dyn, with a collider unless col === false
+  const B = (x0, x1, y0, y1, z0, z1, m, o = {}) => { const me = hgMesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, { dyn: o.dyn, cast: o.cast });
+    if (o.col !== false) me.userData.col = addCollider(Math.min(x0, x1), y0, Math.min(z0, z1), Math.max(x0, x1), y1, Math.max(z0, z1), {}); return me; };
+  const { z0, z1, xE, xW, lobW, FY, RY } = NY, y0r = HR.deck;
+
+  // ---- the lobby: a double-height hall, the door facing the street, one long stair up the north wall ----
+  B(xE - 0.4, xE, 0, 3.4, z0, 351, tile); B(xE - 0.4, xE, 0, 3.4, 359, z1, tile); B(xE - 0.4, xE, 3.4, FY - 0.5, z0, z1, tile); // east front: the door 351–359
+  B(xE - 0.05, xE + 0.02, 0.4, 3.2, 351.2, 358.8, glass, { col: false }); // the glass doors stand open
+  B(lobW, xE, 0, FY - 0.5, z0, z0 + 0.4, tile); B(lobW, xE, 0, FY - 0.5, z1 - 0.4, z1, tile); B(lobW, lobW + 0.4, 0, FY - 0.5, z0, z1, tileD);
+  B(xE + 0.6, lobW - 0.6, 0.04, 0.12, z0, z1, floorM, { col: false });
+  for (let i = 0; i < 6; i++) B(-52.2 - i * 4.5, -51.8 - i * 4.5, FY - 0.64, FY - 0.6, 353, 369, lamp, { col: false, cast: false });
+  // ticket machines and a closed kiosk along the south wall; a fallen sign
+  for (let i = 0; i < 4; i++) B(-52 - i * 1.6, -50.8 - i * 1.6, 0, 1.8, z1 - 1.2, z1 - 0.4, steel);
+  B(-72, -66, 0, 2.6, z1 - 4.4, z1 - 0.4, tileD);
+  // the stair: 50 risers of 0.172 m on 0.38 m treads, from the lobby floor at x -57 up to the first floor at x -76
+  { const [sx0, sx1] = NY.stairX, [sz0, sz1] = NY.stairZ, n = 50, run = (sx0 - sx1) / n, rise = FY / n;
+    for (let i = 0; i < n; i++) { const xa = sx0 - i * run, h = (i + 1) * rise; B(xa - run, xa, 0, h, sz0, sz1, stepM, { cast: false }); B(xa - run, xa - run + 0.05, h - 0.01, h + 0.004, sz0, sz1, nose, { col: false, cast: false }); }
+    B(sx1, sx0, 0, FY, sz1, sz1 + 0.15, glass, { col: false }); // glass balustrade on the open side, rising with the stair
+    for (let i = 0; i <= 10; i++) { const x = sx0 - i * (sx0 - sx1) / 10, h = FY * i / 10; B(x - 0.04, x + 0.04, h, h + 1.0, sz1 + 0.02, sz1 + 0.1, steel, { col: false, cast: false }); }
+    B(sx1, sx0, 0, 0.001, sz1, sz1 + 0.15, steel, { col: false }); // (keeps the balustrade grounded visually)
+    // a handrail you cannot step through: a thin collider along the balustrade, as high as the step beside it
+    for (let i = 0; i < n; i += 5) { const xa = sx0 - i * run; B(xa - run * 5, xa, 0, (i + 5) * rise + 1.0, sz1 + 0.02, sz1 + 0.14, steel, { cast: false }).visible = false; } }
+
+  // ---- the first floor: the concourse slab over the lobby, the forecourt and all the tracks ----
+  { const [sx0, sx1] = NY.stairX, [sz0, sz1] = NY.stairZ;
+    B(xE, lobW, FY - 0.5, FY, sz1 + 0.15, z1, floorM); B(xE, sx0, FY - 0.5, FY, z0, sz1 + 0.15, floorM); B(sx1, lobW, FY - 0.5, FY, z0, sz1 + 0.15, floorM);
+    // the stairwell's guard rail on the first floor
+    B(sx1, sx0, FY, FY + 1.05, sz1 + 0.15, sz1 + 0.3, glass); B(sx0, sx0 + 0.15, FY, FY + 1.05, z0, sz1 + 0.3, glass);
+    // west of the lobby wall the floor is laid in 6 m bays: over the forecourt they stay, over the tracks they can fall
+    for (let x = lobW; x > xW + 0.01; x -= 6) { const xb = Math.max(xW, x - 6), over = x <= -111.5; const me = B(xb, x, FY - 0.5, FY, z0, z1, floorM, { dyn: over }); if (over) NY.floor.push(me);
+      B(xb, x, FY - 0.62, FY - 0.5, z0 + 0.4, z1 - 0.4, ceil, { col: false, dyn: over }); }
+    // under-floor beams and the columns: on the forecourt, on the railway walls, on each island platform's centre line
+    for (const x of [-95, -111.5, -128.5, -143.5, -158.5, xW + 0.6]) for (const z of [z0 + 2, z1 - 2]) B(x - 0.45, x + 0.45, x < -111 && x > -170 ? y0r + 1.1 : 0, FY - 0.6, z - 0.45, z + 0.45, tileD); }
+
+  // ---- concourse walls (glazed band between tiled spandrels), roof in 6 m panels ----
+  const gaps = NY.platStairs.map(([x]) => x);
+  for (let x = xE; x > xW + 0.01; x -= 6) { const xb = Math.max(xW, x - 6), over = x <= -111.5;
+    // north wall: tiled base, glazing, tiled top
+    for (const [y0, y1, m] of [[FY, FY + 1.1, tile], [FY + 1.1, RY - 1.2, glass], [RY - 1.2, RY, tile]]) { const w = B(xb, x, y0, y1, z0 - 0.4, z0, m, { dyn: true, col: m !== glass || y0 < FY + 1.2 }); NY.wall.push(w); }
+    if (m7wallOpen(gaps, xb, x)) { // south wall with the stair openings (3.4 m, full height of the door)
+      for (const [a, b] of m7wallSplit(gaps, xb, x)) for (const [y0, y1, m] of [[FY, FY + 1.1, tile], [FY + 1.1, RY - 1.2, glass], [RY - 1.2, RY, tile]]) NY.wall.push(B(a, b, y0, y1, z1, z1 + 0.4, m, { dyn: true }));
+      for (const g of gaps) if (g < x && g > xb) NY.wall.push(B(g - 1.7, g + 1.7, FY + 3.2, RY, z1, z1 + 0.4, tile, { dyn: true })); }
+    else for (const [y0, y1, m] of [[FY, FY + 1.1, tile], [FY + 1.1, RY - 1.2, glass], [RY - 1.2, RY, tile]]) NY.wall.push(B(xb, x, y0, y1, z1, z1 + 0.4, m, { dyn: true }));
+    const r = B(xb, x, RY, RY + 0.6, z0 - 0.4, z1 + 0.4, tileD, { dyn: true, col: false }); NY.roof.push(r);
+    for (let k = 0; k < 2; k++) B(xb + 1.4 + k * 3, xb + 1.75 + k * 3, RY - 0.1, RY - 0.05, z0 + 4, z1 - 4, lamp, { col: false, cast: false, dyn: true }).userData.lampOf = r; }
+  B(xW - 0.4, xW, FY, RY, z0, z1, tile, { dyn: true }); B(xE - 0.4, xE, FY, RY, z0, z1, tile);
+  // ticket gates across the concourse: grey cabinets with 0.9 m lanes, one 2.4 m wide gate at z 360 on the way through
+  for (let z = z0 + 1.2; z < z1 - 1; z += 1.5) { if (z > 358.4 && z < 361.6) continue; B(NY.gateX - 0.9, NY.gateX + 0.9, FY, FY + 1.0, z, z + 0.3, steel); B(NY.gateX - 0.6, NY.gateX - 0.3, FY + 1.0, FY + 1.03, z + 0.05, z + 0.25, basicMat('nyGateG', 0x30d070), { col: false, cast: false }); }
+  // the line boards over each stair: blue 1호선 on white
+  for (const [x] of NY.platStairs) signBoard(x, RY - 2.2, z1 - 0.6, x < -170 ? '6  경부선 · 장항선' : x < -150 ? '4·5  1호선 하행' : x < -135 ? '2·3  1호선 상행' : '1  1호선 급행', { w: 3.2, bg: '#1d4f8a', size: 44, ry: Math.PI });
+
+  // ---- the stairs down from the concourse's south side onto the platforms (the last one onto the low platform) ----
+  for (const [x, top] of NY.platStairs) { const ytop = y0r + top, n = Math.round((FY - ytop) / 0.172), run = 0.3, rise = (FY - ytop) / n, w = x < -170 ? 2.6 : 2.8;
+    for (let i = 0; i < n; i++) { const za = z1 + 0.4 + i * run, h = FY - (i + 1) * rise; B(x - w / 2, x + w / 2, ytop, h + rise, za, za + run, stepM, { cast: false }); B(x - w / 2, x + w / 2, h + rise - 0.004, h + rise + 0.008, za, za + 0.05, nose, { col: false, cast: false }); }
+    B(x - w / 2 - 0.3, x + w / 2 + 0.3, FY - 0.5, FY, z1 - 0.2, z1 + 0.45, floorM, { cast: false }); // the landing through the wall opening, so the floor runs straight onto the top step
+    const zEnd = z1 + 0.4 + n * run;
+    for (const s of [-1, 1]) { B(x + s * (w / 2 + 0.05) - 0.04, x + s * (w / 2 + 0.05) + 0.04, ytop, ytop + 1, zEnd - 0.1, zEnd, steel, { col: false });
+      for (let i = 0; i < n; i += 4) { const za = z1 + 0.4 + i * run, h = FY - i * rise; B(x + s * (w / 2 + 0.05) - 0.06, x + s * (w / 2 + 0.05) + 0.06, h - 4 * rise, h + 1.0, za, za + 4 * run, glass, { cast: false }); } }
+    B(x - w / 2 - 0.3, x + w / 2 + 0.3, FY + 2.6, FY + 2.75, z1 + 0.4, zEnd, hgMat('nyStairRoof', { color: 0x7a8288, rough: 0.5, metal: 0.4 }), { col: false }); }
+
+  // ---- outside: the green-glazed stair tower on the street front with the name on top, the exterior stair, the forecourt furniture ----
+  { const tx0 = xE + 0.4, tx1 = xE + 7, tz0 = 360.5, tz1 = 368.5;
+    B(tx0, tx1, 0, 16.2, tz0, tz0 + 0.3, tile); B(tx0, tx1, 0, 16.2, tz1 - 0.3, tz1, tile);
+    B(tx1 - 0.15, tx1, 0, 14.6, tz0 + 0.3, tz1 - 0.3, green, { col: true }); B(tx0, tx1, 14.6, 16.2, tz0, tz1, tile);
+    for (let y = 2.4; y < 14.6; y += 2.4) B(tx1 - 0.2, tx1 + 0.02, y - 0.06, y + 0.06, tz0 + 0.3, tz1 - 0.3, hgMat('nyMull', { color: 0xdedad2, rough: 0.6 }), { col: false });
+    for (let z = tz0 + 2; z < tz1 - 0.5; z += 2) B(tx1 - 0.2, tx1 + 0.02, 0, 14.6, z - 0.05, z + 0.05, hgMat('nyMull', { color: 0xdedad2, rough: 0.6 }), { col: false });
+    signBoard(tx1 + 0.06, 15.4, (tz0 + tz1) / 2, '노량진역', { w: 6.4, bg: '#e8e4dc', fg: '#2a2a2a', size: 72, ry: Math.PI / 2 });
+    // the exterior stair to the first-floor deck on the street side (closed off with a shutter)
+    B(xE + 0.4, xE + 3.4, 0, 0.9, 343, 356, tileD); B(xE + 0.4, xE + 3.4, 3.4, 3.7, 343, 351, tileD, { col: false });
+    for (let i = 0; i < 6; i++) B(xE + 4 + i * 1.9, xE + 4.12 + i * 1.9, 0, 1.0, 344, 352, steel); // bike rack rails
+    B(xE + 3.6, xE + 15, 0, 0.12, 343.5, 352.5, dark, { col: false, cast: false }); }
+  // the concourse also reads from the far side of the tracks: its name on the west end
+  signBoard(xW - 0.5, RY - 1.8, (z0 + z1) / 2, 'NORYANGJIN', { w: 9, bg: '#e8e4dc', fg: '#2a2a2a', size: 60, ry: -Math.PI / 2 });
+
+  // ---- the street around it: 노량진 학원가 across 노량진로, low shops at the forecourt's ends ----
+  for (const [x, z, w, d, h] of [[-72, 228, 40, 18, 13], [-68, 440, 44, 22, 16], [-100, 440, 18, 22, 10]]) hgBuilding(x, z, w, d, h, 'mid', { shops: true, v: randi(0, 3) });
+  { let z = 214; while (z < 470) { const d = rand(20, 34); hgBuilding(38, z + d / 2, 24, d - 4, rand(22, 48), pick(['mid', 'glass', 'mid']), { shops: true, v: randi(0, 3) }); z += d; } }
+  { let z = 210; while (z < 470) { const d = rand(26, 40); hgBuilding(72, z + d / 2, 34, d - 6, rand(30, 62), pick(['apt', 'mid', 'glass']), { v: randi(0, 3) }); z += d; } }
+  { let z = 216; while (z < 470) { const d = rand(30, 46); hgBuilding(112, z + d / 2, 36, d - 8, rand(24, 70), pick(['apt', 'mid']), { v: randi(0, 3), bare: true }); z += d; } }
+  // 학원 banners on the street-facing fronts
+  const names = ['메가 공무원', '9급 합격', '경찰학원', '임용 전문', '노량진 컵밥', '고시원', '독서실 24시', '한국사 특강'];
+  { let i = 0; for (let z = 226; z < 462; z += 19) signBoard(25.6, rand(6, 14), z, names[i++ % names.length], { w: 5.2, bg: pick(['#c8202a', '#1d4f8a', '#2a7a3a', '#e0a020']), size: 50, ry: -Math.PI / 2 }); }
+}
+function m7wallOpen(gaps, a, b) { return gaps.some((g) => g + 1.7 > a && g - 1.7 < b); }
+function m7wallSplit(gaps, a, b) { let segs = [[a, b]]; for (const g of gaps) { const n = []; for (const [s, e] of segs) { if (g + 1.7 <= s || g - 1.7 >= e) n.push([s, e]); else { if (g - 1.7 > s) n.push([s, g - 1.7]); if (g + 1.7 < e) n.push([g + 1.7, e]); } } segs = n; } return segs.filter(([s, e]) => e - s > 0.05); }
 
 /* ---------------- boot ---------------- */
 addEventListener('unhandledrejection', (e) => { if (e.reason instanceof Abort) e.preventDefault(); });

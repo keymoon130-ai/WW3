@@ -1,7 +1,7 @@
 /* ---------- the whole city as one build, shared by the sample and the two Seoul missions ---------- */
 function hgCity(o = {}) {
   G.groundAt = hgGround; G.waterY = HG.water;
-  hgRiver(); hgYeouido(); hgBridge(); hgAvenue(); hgBlocks(); hgYongsan(); hgRoute(); hgSeoulStation(); hgSungnyemun(); hgCityHall(); hgGwanghwamun(); hg63(o.tower63 || 'charred');
+  hgRiver(); hgYeouido(); hgBridge(); hgAvenue(); hgBlocks(); hgYongsan(); hgRoute(); hgNoryangjin(); hgSeoulStation(); hgSungnyemun(); hgCityHall(); hgGwanghwamun(); hg63(o.tower63 || 'charred');
   if (o.war !== false) hgWar();
   if (o.stationDown) hgStationFall(true);
   if (o.gate) hgGateFire(o.gate);
