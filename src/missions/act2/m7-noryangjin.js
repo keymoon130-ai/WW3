@@ -66,7 +66,7 @@ function m7NyRubble(x0, x1, z0, z1, h, R, y0 = 0) {
 /* one roof bay comes down onto the concourse floor: it hangs a moment on one side, tears, drops; the walls either side go with it */
 function m7NyDropRoof(r, R) {
   r.userData.fallen = true; const x = r.position.x, side = Math.random() < 0.5 ? 1 : -1; let vy = 0, t = 0, landed = false;
-  for (const l of G.world.children) if (l.userData.lampOf === r) l.visible = false;
+  for (const l of r.children) if (l.userData.lamp) l.visible = false; // the power goes with it
   G.updaters.push((dt) => { t += dt; if (t < 0.25) { r.rotation.x += side * dt * 0.25; return; } vy -= 9.8 * dt; r.position.y += vy * dt; r.rotation.x += side * dt * 0.18; r.rotation.z += dt * 0.05;
     if (!landed && r.position.y <= NY.FY + 0.6) { landed = true; r.position.y = NY.FY + 0.6; const p = v3(x, NY.FY + 1, (NY.z0 + NY.z1) / 2);
       FX.dust(p, 40, [0.72, 0.7, 0.65], 2.2); addEmitter(p, 'smoke', 2.2, 3, 14); if (Math.random() < 0.4) addEmitter(p.clone().add(v3(rand(-2, 2), 0, rand(-8, 8))), 'fire', 1.1, 10, 40);

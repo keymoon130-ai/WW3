@@ -42,8 +42,9 @@ function hgNoryangjin() {
     // the stairwell's guard rail on the first floor
     B(sx1, sx0, FY, FY + 1.05, sz1 + 0.15, sz1 + 0.3, glass); B(sx0, sx0 + 0.15, FY, FY + 1.05, z0, sz1 + 0.3, glass);
     // west of the lobby wall the floor is laid in 6 m bays: over the forecourt they stay, over the tracks they can fall
-    for (let x = lobW; x > xW + 0.01; x -= 6) { const xb = Math.max(xW, x - 6), over = x <= -111.5; const me = B(xb, x, FY - 0.5, FY, z0, z1, floorM, { dyn: over }); if (over) NY.floor.push(me);
-      B(xb, x, FY - 0.62, FY - 0.5, z0 + 0.4, z1 - 0.4, ceil, { col: false, dyn: over }); }
+    for (let x = lobW; x > xW + 0.01; x -= 6) { const xb = Math.max(xW, x - 6), over = x <= -111.5; const me = B(xb, x, FY - 0.5, FY, z0, z1, floorM, { dyn: over });
+      if (over) { NY.floor.push(me); const c = new THREE.Mesh(new THREE.BoxGeometry(x - xb, 0.12, z1 - z0 - 0.8), ceil); c.position.set(0, -0.31, 0); me.add(c); } // the ceiling goes down with its bay
+      else B(xb, x, FY - 0.62, FY - 0.5, z0 + 0.4, z1 - 0.4, ceil, { col: false }); }
     // under-floor beams and the columns: on the forecourt, on the railway walls, on each island platform's centre line
     for (const x of [-95, -111.5, -128.5, -143.5, -158.5, xW + 0.6]) for (const z of [z0 + 2, z1 - 2]) B(x - 0.45, x + 0.45, x < -111 && x > -170 ? y0r + 1.1 : 0, FY - 0.6, z - 0.45, z + 0.45, tileD); }
 
@@ -57,7 +58,7 @@ function hgNoryangjin() {
       for (const g of gaps) if (g < x && g > xb) NY.wall.push(B(g - 1.7, g + 1.7, FY + 3.2, RY, z1, z1 + 0.4, tile, { dyn: true })); }
     else for (const [y0, y1, m] of [[FY, FY + 1.1, tile], [FY + 1.1, RY - 1.2, glass], [RY - 1.2, RY, tile]]) NY.wall.push(B(xb, x, y0, y1, z1, z1 + 0.4, m, { dyn: true }));
     const r = B(xb, x, RY, RY + 0.6, z0 - 0.4, z1 + 0.4, tileD, { dyn: true, col: false }); NY.roof.push(r);
-    for (let k = 0; k < 2; k++) B(xb + 1.4 + k * 3, xb + 1.75 + k * 3, RY - 0.1, RY - 0.05, z0 + 4, z1 - 4, lamp, { col: false, cast: false, dyn: true }).userData.lampOf = r; }
+    for (let k = 0; k < 2; k++) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.05, z1 - z0 - 8), lamp); l.position.set(xb + 1.575 + k * 3 - (xb + x) / 2, -0.375, 0); l.userData.lamp = true; r.add(l); } } // the lamps hang from their roof bay
   B(xW - 0.4, xW, FY, RY, z0, z1, tile, { dyn: true }); B(xE - 0.4, xE, FY, RY, z0, z1, tile);
   // ticket gates across the concourse: grey cabinets with 0.9 m lanes, one 2.4 m wide gate at z 360 on the way through
   for (let z = z0 + 1.2; z < z1 - 1; z += 1.5) { if (z > 358.4 && z < 361.6) continue; B(NY.gateX - 0.9, NY.gateX + 0.9, FY, FY + 1.0, z, z + 0.3, steel); B(NY.gateX - 0.6, NY.gateX - 0.3, FY + 1.0, FY + 1.03, z + 0.05, z + 0.25, basicMat('nyGateG', 0x30d070), { col: false, cast: false }); }
