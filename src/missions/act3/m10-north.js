@@ -180,8 +180,14 @@ defMission({
           const out = rtAt(RT.V[4] + 690 + 150, -48);
           // they leave in order — nearest the door first — in three files across the stair, a pace apart, all at the same pace
           const order = [...D.people].sort((a, b) => b.p.z - a.p.z);
+          // a queue, not a scrum: nobody walks into the back of the person in front — they wait until there is a pace of room
+          const Q = []; G.updaters.push(() => { if (G.mode !== 'play') return true; let any = false;
+            Q.forEach((a, ia) => { if (!a.alive || !a.goTo || a.m10Out) return; any = true; const dx = a.goTo.x - a.pos.x, dz = a.goTo.z - a.pos.z, dl = Math.hypot(dx, dz) || 1; let wait = false;
+              for (let ib = 0; ib < ia; ib++) { const b = Q[ib]; if (!b.alive) continue; /* only those who left before you: no two people ever wait on each other */ const rx = b.pos.x - a.pos.x, rz = b.pos.z - a.pos.z, d = Math.hypot(rx, rz); if (d > 1.15 || Math.abs(b.pos.y - a.pos.y) > 1.1) continue; if ((rx * dx + rz * dz) / dl > d * 0.35) { wait = true; break; } }
+              a.o.speed = wait ? 0.01 : 3.6; if (wait) a.stuck = 0; });
+            if (!any && Q.length >= D.people.length) return true; });
           order.forEach((o, i) => S.later(2.2 + i * 0.42, () => { o.done = true; const p = o.m.root.position; G.world.remove(o.m.root); const lane = ((i % 3) - 1) * 1.25;
-            const a = civ(p.x, p.z, { goTo: [route[0].x + lane, route[0].z], speed: 3.8, y: D.FL }); a.yaw = o.m.root.rotation.y; let k = 0;
+            const a = civ(p.x, p.z, { goTo: [route[0].x + lane, route[0].z], speed: 3.6, y: D.FL }); a.yaw = o.m.root.rotation.y; Q.push(a); let k = 0;
             S.every(0.2, () => { if (!a.alive) return true; if (a.goTo && Math.hypot(a.goTo.x - a.pos.x, a.goTo.z - a.pos.z) > 1.0) return; k++; if (k < route.length) a.goTo = route[k].clone().add(v3(lane, 0, 0)); else { const c = G.m10Pole, q = c ? c.clone().add(v3(rand(-14, 14), 0, rand(6, 22))) : v3(out.x + rand(-18, 18), 0, out.z + rand(-18, 18)); a.goTo = q; a.o.speed = rand(1.6, 2.6); a.m10Out = true; return true; } }); })); }
         await S.wait(3);
         await S.say('한지운 하사', '천천히! 다 같이 나갈 수 있습니다!', { dur: 2.4 });

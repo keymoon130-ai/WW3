@@ -160,7 +160,8 @@ function probeFree(pos, dx, dz, len, feetY) {
     for (const L of [G.colliders, G.dyn]) for (const c of L) {
       if (!c.move || c.max.y <= feetY + 0.55 || c.min.y >= feetY + 1.8) continue;
       const t = rayAABB(pos.x, oy, pos.z, dx, 0, dz, { min: { x: c.min.x - 0.3, y: c.min.y, z: c.min.z - 0.3 }, max: { x: c.max.x + 0.3, y: c.max.y, z: c.max.z + 0.3 } }, len);
-      if (t >= 0 && t < len) return false;
+      /* a step further along a stair is not a wall: its top only has to clear the climb a walker makes getting there (≈30° flight + one riser) */
+      if (t >= 0 && t < len && (t < 0.6 || c.max.y > feetY + 0.55 + t * 0.62)) return false;
     } }
   return true;
 }

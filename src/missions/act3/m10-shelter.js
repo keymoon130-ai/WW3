@@ -13,7 +13,7 @@ function m10Shelter() {
   const gran = mat('shGran', { color: 0x8a8680, rough: 0.8 }), wallM = mat('shWall', { color: 0x9a968c, map: 'concrete', rough: 0.9 }), floorM = mat('shFloor', { color: 0x6e6a62, map: 'concrete', rough: 0.95 });
   const ceilM = mat('shCeil', { color: 0x5a5852, rough: 1 }), steel = mat('shSteel', { color: 0x4a5056, rough: 0.45, metal: 0.65 }), stepM = mat('shStep', { color: 0x7c786e, map: 'concrete', rough: 0.9 }), nose = mat('shNose', { color: 0xb89a30, rough: 0.6 });
   const lamp = basicMat('shLamp', 0xf2ecd8), lampDim = basicMat('shLampDim', 0x8a8470), red = basicMat('shRed', 0xff3020), glass = mat('shGlass', { color: 0x9ab0b8, rough: 0.06, metal: 0.3, transparent: true, opacity: 0.35 });
-  const B = (x0, x1, y0, y1, z0, z1, m, o = {}) => { const me = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m); me.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); me.castShadow = o.cast ?? true; me.receiveShadow = true; G.world.add(me);
+  const B = (x0, x1, y0, y1, z0, z1, m, o = {}) => { const me = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m); me.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); me.userData.shelter = true; me.castShadow = o.cast ?? true; me.receiveShadow = true; G.world.add(me);
     if (o.col !== false) me.userData.col = addCollider(x0, y0, z0, x1, y1, z1, {}); return me; };
   const X = (a) => ex + a, Z = (b) => ez + b; // local offsets: +x east, -z north (into the ground)
   // ---- the street kiosk: granite walls on three sides, a glass canopy, the blast door across the open (south) side ----
@@ -26,13 +26,13 @@ function m10Shelter() {
   { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0), new THREE.MeshStandardMaterial({ map: canvasTex(160, 100, (c, w, h) => { c.fillStyle = '#e8d020'; c.fillRect(0, 0, w, h); c.fillStyle = '#111'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('민방위 대피소', w / 2, 40); c.font = '16px sans-serif'; c.fillText('CIVIL DEFENSE SHELTER', w / 2, 70); }) })); s.position.set(X(2.62), 2.2, Z(2)); s.rotation.y = Math.PI / 2; G.world.add(s); }
   // ---- flight 1: under the kiosk, from the plaza down to a landing 4.5 m down; flight 2 on north to the concourse ----
   const flight = (z0, y0, y1, n, x0, x1) => { const rise = (y0 - y1) / n; for (let i = 0; i < n; i++) { const za = z0 - (i + 1) * 0.3, h = y0 - (i + 1) * rise; B(x0, x1, D.FL - 0.5, h, za, za + 0.3, stepM, { cast: false }); B(x0, x1, h - 0.005, h + 0.01, za + 0.25, za + 0.3, nose, { col: false, cast: false }); } return z0 - n * 0.3; };
-  const zL1 = flight(Z(3.9), TOP, -4.5, 26, X(-1.9), X(1.9)); D.stairTop = v3(X(0), TOP, Z(3.4));
-  B(X(-1.9), X(1.9), D.FL - 0.5, -4.5, zL1 - 2.2, zL1, floorM, { cast: false }); const zF2 = zL1 - 2.2; D.landing = v3(X(0), -4.5, zL1 - 1.1);
-  const zC = flight(zF2, -4.5, D.FL, 26, X(-1.9), X(1.9)); D.stairFoot = v3(X(0), D.FL, zC - 1);
+  const LY = (TOP + D.FL) / 2, zL1 = flight(Z(3.9), TOP, LY, 27, X(-1.9), X(1.9)); /* every riser the same: 54 × 0.172 m in two flights of 27 */ D.stairTop = v3(X(0), TOP, Z(3.4));
+  B(X(-1.9), X(1.9), D.FL - 0.5, LY, zL1 - 2.2, zL1, floorM, { cast: false }); const zF2 = zL1 - 2.2; D.landing = v3(X(0), LY, zL1 - 1.1);
+  const zC = flight(zF2, LY, D.FL, 27, X(-1.9), X(1.9)); D.stairFoot = v3(X(0), D.FL, zC - 1);
   // the stairwell's walls and ceiling, down into the ground (the plaza is above the ceiling from flight 2 on)
   for (const s of [-1, 1]) B(X(s * 2.2) - 0.2, X(s * 2.2) + 0.2, D.FL - 0.5, 0, zC, Z(4.2), wallM, { cast: false });
   B(X(-2.4), X(2.4), D.FL - 0.5, 0, Z(4.2), Z(4.6), wallM, { cast: false }); // under the door sill
-  B(X(-2.4), X(2.4), -0.6, 0.25, zC, Z(-5.2), ceilM, { col: false, cast: false });
+  B(X(-2.4), X(2.4), -0.6, 0.25, zC, zL1, ceilM, { col: false, cast: false });
   for (let z = Z(-6); z > zC; z -= 4) B(X(-0.3), X(0.3), -0.64, -0.6, z - 1.2, z, lampDim, { col: false, cast: false });
   // ---- the passage north to the shelter, 6 m wide, 4.4 m high; the memorial room opens off its east side ----
   const c0 = zC, c1 = zC - 14; D.c0 = c0; D.c1 = c1;
@@ -102,7 +102,7 @@ function m7ShPose(o, dt) {
 function m10CutPlaza(hole) {
   const rc = new THREE.Raycaster(), mats = new Set(); rc.camera = camera; G.staticRoot.updateMatrixWorld(true); G.world.updateMatrixWorld(true); // sprites need the camera; nothing has been rendered yet, so bring the world matrices up to date
   for (const [u, v] of [[0.5, 0.5], [0.2, 0.2], [0.8, 0.8], [0.2, 0.8], [0.8, 0.2]]) { const x = hole.x0 + (hole.x1 - hole.x0) * u, z = hole.z0 + (hole.z1 - hole.z0) * v; rc.set(v3(x, 40, z), v3(0, -1, 0));
-    for (const h of rc.intersectObjects([G.staticRoot, G.world], true)) { if (h.point.y > 1 || h.point.y < -1.5 || !h.object.isMesh) continue; (Array.isArray(h.object.material) ? h.object.material : [h.object.material]).forEach((m) => mats.add(m)); } }
+    for (const h of rc.intersectObjects([G.staticRoot, G.world], true)) { if (h.point.y > 1 || h.point.y < -1.5 || !h.object.isMesh || h.object.userData.shelter) continue; /* the stair's own steps share the hole: never cut them */ (Array.isArray(h.object.material) ? h.object.material : [h.object.material]).forEach((m) => mats.add(m)); } }
   for (const m of mats) { if (m.userData.holeCut) continue; m.userData.holeCut = true; const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey ? m.customProgramCacheKey.bind(m) : () => '';
     m.onBeforeCompile = (s, r) => { if (prev) prev(s, r);
       s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vHoleW;').replace('#include <project_vertex>', '#include <project_vertex>\nvHoleW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
