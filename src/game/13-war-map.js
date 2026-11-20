@@ -67,10 +67,11 @@ async function runVideo(S, file, o = {}) {
     if (!G.ffwd) {
       v.volume = vol(); v.style.opacity = 1; // cut straight in, no fade
       const ended = new Promise((res) => { v.onended = res; v.onerror = res; setTimeout(res, ((v.duration || 120) + 5) * 1000); });
-      try { await v.play(); } catch (e) { v.muted = true; try { await v.play(); } catch (e2) {} }
+      let fin = false;
+      v.play().catch(() => { v.muted = true; v.play().catch(() => (fin = true)); }); // nothing can play it: go straight on
       raf = requestAnimationFrame(tick);
-      let fin = false; ended.then(() => (fin = true));
-      await S.until(() => fin || G.ffwd);
+      ended.then(() => (fin = true));
+      await S.until(() => fin || G.ffwd || G.testMode); // the autopilot steps game time far faster than a film plays: it skips the film
       v.style.opacity = 0;
     }
     await S.wait(hold);

@@ -133,13 +133,36 @@ function fireWeapon(w, st) {
 }
 function missionMuzzle() { return camera.position; }
 function missileGuide() { if (!(P.ads > 0.5 && curId() === 'atgm')) return null; const d = v3(); camera.getWorldDirection(d); const r = rayWorld(camera.position, d, 600); return camera.position.clone().addScaledVector(d, Math.max(r.t, 20)); }
+/* a flat naval shot would bury itself in a hill between the ship and the mark: lob it just high enough to clear the ground on the way */
+function navalFlight(from, tp, g) {
+  for (let T = 2.4; T <= 6.01; T += 0.4) { let ok = true; const vy = (tp.y - from.y + 0.5 * g * T * T) / T;
+    let px = from.x, py = from.y, pz = from.z;
+    for (let i = 1; i <= 48 && ok; i++) { const t = (T * i) / 48, k = i / 48, x = lerp(from.x, tp.x, k), z = lerp(from.z, tp.z, k), y = from.y + vy * t - 0.5 * g * t * t;
+      const near = Math.hypot(x - tp.x, z - tp.z) < 6; if (!near && y < G.groundAt(x, z) + 2) ok = false;
+      else if (!near) { const d = v3(x - px, y - py, z - pz), L = d.length(); d.divideScalar(L); const r = rayWorld(v3(px, py, pz), d, L); if (r.c && r.t < L) ok = false; } // anything solid short of the last few metres stops the shell
+      px = x; py = y; pz = z; }
+    if (ok) return T; }
+  return 0;
+}
+/* the ship's guns: four rounds on the mark */
+function navalSalvo(at) {
+    for (let i = 0; i < 4; i++) setGameTimeout(() => { const tp = at.clone().add(v3(rand(-4, 4), 0, rand(-4, 4))); const from = G.navalGun.clone().add(v3(rand(-6, 6), 0, 0)), gch = 4, T = navalFlight(from, tp, gch);
+      if (T) { const vel = v3((tp.x - from.x) / T, (tp.y - from.y + 0.5 * gch * T * T) / T, (tp.z - from.z) / T); new Proj('naval', from, vel, { target: tp, src: PT, life: T + 3 }); }
+      else { /* masked by a ridge: high-angle fire — the shell comes down steeply from the ship's side of the sky */ const b = v3(from.x - tp.x, 0, from.z - tp.z).normalize(), top = tp.clone().addScaledVector(b, 55).add(v3(0, 210, 0)); new Proj('naval', top, v3().subVectors(tp, top).normalize().multiplyScalar(150), { target: tp, src: PT, life: 6 }); } for (let k = 0; k < 4; k++) particle({ add: true, x: from.x, y: from.y, z: from.z, life: 0.3, size: rand(10, 18), color: [1, 0.7, 0.4] }); for (let k = 0; k < 12; k++) particle({ x: from.x, y: from.y, z: from.z, vx: rand(-4, 4), vy: rand(0, 3), vz: rand(-4, 4), life: rand(1.5, 3), size: 2, size1: 7, alpha: 0.4, color: [0.7, 0.7, 0.7], drag: 1.5 }); flashLight(from, 0xffa050, 80, 200, 0.2); SFX.shot('cannon', from); }, 2.4 + i * 0.45);
+}
+/* who answers the designator in this mission: the ship's guns, aircraft or the artillery — every message names the right one */
+function desigSupport() {
+  if (G.airMode || G.strikeMode === 'air') return { kind: 'air', wait: '다음 공격 편대 진입까지', ready: '공격 가능', reload: '편대 진입' };
+  if (G.strikeMode === 'arty') return { kind: 'arty', wait: '포병 재장전 중…', ready: '사격 준비', reload: '재장전' };
+  return { kind: 'naval', wait: '함포 재장전 중…', ready: '사격 준비', reload: '재장전' };
+}
 function fireDesignator() {
   if (P.ads < 0.8) { hint('우클릭으로 조준한 뒤 표적을 지정하세요', 2); return; }
-  if ((G.navalCd || 0) > G.time) { hint(`함포 재장전 중… ${Math.ceil(G.navalCd - G.time)}초`, 1.5); return; }
+  if ((G.navalCd || 0) > G.time) { hint(`${desigSupport().wait} ${Math.ceil(G.navalCd - G.time)}초`, 1.5); return; }
   const d = v3(); camera.getWorldDirection(d); const r = rayWorld(camera.position, d, 700); if (!r.c) { hint('표적을 지정할 수 없어요', 1.5); return; }
   const at = camera.position.clone().addScaledVector(d, r.t);
   G.navalCd = G.time + (WD.desig.cooldown || 14); SFX.radio();
-  subtitle('함포 통제', G.navalShip ? '좌표 수신. 함포 사격 개시!' : '좌표 수신. 사격 개시, 탄착까지 5초.', 3, true);
+  if (desigSupport().kind === 'naval') subtitle('함포 통제', G.navalShip ? '좌표 수신. 함포 사격 개시!' : '좌표 수신. 사격 개시, 탄착까지 5초.', 3, true);
   G.navalMark = { pos: at.clone(), t: G.time + 5.5 };
   if (G.airMode) {
     subtitle('항공 통제', '좌표 수신. 이글 2-1, 공격 진입한다.', 3, true); G.navalCd = G.time + 10;
@@ -158,10 +181,8 @@ function fireDesignator() {
     for (let i = 0; i < 8; i++) setGameTimeout(() => { const tp = at.clone().add(v3(rand(-8, 8), 0, rand(-8, 8))); new Proj('naval', tp.clone().add(v3(rand(-6, 6), 160, rand(-6, 6))), v3(rand(-2, 2), -150, rand(-2, 2)), { target: tp, src: PT }); }, 3.6 + i * 0.25);
     return;
   }
-  if (G.navalShip && G.navalGun) {
-    for (let i = 0; i < 4; i++) setGameTimeout(() => { const tp = at.clone().add(v3(rand(-4, 4), 0, rand(-4, 4))); const from = G.navalGun.clone().add(v3(rand(-6, 6), 0, 0)); const T = 2.4, gch = 4; const vel = v3((tp.x - from.x) / T, (tp.y - from.y + 0.5 * gch * T * T) / T, (tp.z - from.z) / T);
-      new Proj('naval', from, vel, { target: tp, src: PT }); for (let k = 0; k < 4; k++) particle({ add: true, x: from.x, y: from.y, z: from.z, life: 0.3, size: rand(10, 18), color: [1, 0.7, 0.4] }); for (let k = 0; k < 12; k++) particle({ x: from.x, y: from.y, z: from.z, vx: rand(-4, 4), vy: rand(0, 3), vz: rand(-4, 4), life: rand(1.5, 3), size: 2, size1: 7, alpha: 0.4, color: [0.7, 0.7, 0.7], drag: 1.5 }); flashLight(from, 0xffa050, 80, 200, 0.2); SFX.shot('cannon', from); }, 2.4 + i * 0.45);
-  } else
+  if (G.navalShip && G.navalGun) navalSalvo(at);
+  else
   for (let i = 0; i < 4; i++) setGameTimeout(() => { const tp = at.clone().add(v3(rand(-5, 5), 0, rand(-5, 5))); new Proj('naval', tp.clone().add(v3(-60, 260, 120)), v3(60, -260, -120).normalize().multiplyScalar(140), { target: tp, src: PT }); }, 3 + i * 0.5);
 }
 function startReload() {

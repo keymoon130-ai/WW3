@@ -331,7 +331,7 @@ defMission({
         P.ride = { obj: mine.m.root, off: [-0.25, 1.32, 1.0] }; P.yaw = mine.yaw; P.pitch = -0.05; P.noFire = false;
         G.hitMul = 0.55; const regen = S.every(0.5, () => { if (P.alive && P.hp < 100 && G.time - P.lastHit > 2.5) P.hp = Math.min(100, P.hp + 5); });
         // the rest of our lane pulls over to the lane edges so our ACV can run straight up the middle; the other lanes push on
-        cols[2].forEach((v) => { if (!v || !v.alive || v === mine) return; const side = v.type === 'tank' ? 6.2 : -5.4; v.path = [v3(24 + side, 0, v.pos.z - 4)]; v.pi = 0; v.speed = 3; v.stopped = false; });
+        cols[2].forEach((v) => { if (!v || !v.alive || v === mine) return; const side = v.type === 'tank' ? 4.8 : -5.4; /* to the lane edge, short of the container stacks at ±7.8 */ v.path = [v3(24 + side, 0, v.pos.z - 14)]; v.pi = 0; v.speed = 3; v.stopped = false; });
         mine.stopped = true; S.later(3.5, () => { mine.path = [v3(24, 0, -520), v3(24, 0, -560), v3(24, 0, -586)]; mine.pi = 0; mine.speed = 7; mine.stopped = false; mine.o.yieldPeople = false; });
         cols.forEach((col, i) => { if (i === 2) return; col.forEach((v, k) => { if (!v || !v.alive) return; const gx = G.breachX[i]; v.path = [v3(gx, 0, -560 + k * 13), v3(gx, 0, -580 + k * 13)]; v.pi = 0; v.speed = 6; v.stopped = false; }); });
         G.armorFree = true;

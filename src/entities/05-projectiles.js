@@ -7,7 +7,7 @@ class Proj {
   constructor(kind, pos, vel, o = {}) {
     this.kind = kind; this.pos = pos.clone(); this.vel = vel.clone(); this.o = o; this.team = o.team || 'player'; this.owner = o.owner || null;
     this.age = 0; this.alive = true;
-    this.life = { rocket: 6, shell: 3, grenade: o.fuse ?? 2.8, gl: 5, flak: 1.8, missile: 10, naval: 6, mortar: 8 }[kind] ?? 5;
+    this.life = o.life ?? { rocket: 6, shell: 3, grenade: o.fuse ?? 2.8, gl: 5, flak: 1.8, missile: 10, naval: 6, mortar: 8 }[kind] ?? 5;
     if (kind === 'rocket' || kind === 'missile') { this.mesh = new THREE.Mesh(PROJ_MESH.rocket, mat('gunM', { color: 0x1a1b1c })); G.world.add(this.mesh); }
     if (kind === 'gl') { this.mesh = new THREE.Mesh(PROJ_MESH.grenade, mat('glround', { color: 0x6a6a3a })); G.world.add(this.mesh); }
     if (kind === 'grenade') { this.mesh = new THREE.Mesh(PROJ_MESH.grenade, mat('nade', { color: 0x3a4030 })); G.world.add(this.mesh); this.spin = v3(rand(-8, 8), rand(-8, 8), rand(-8, 8)); }

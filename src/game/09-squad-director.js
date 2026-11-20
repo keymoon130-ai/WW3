@@ -118,6 +118,7 @@ async function startMission(idx, phase = 0, keepSub = false) {
   try {
     const ph0 = m.phases[phase];
     if (ph0.setup) ph0.setup(S);
+    if (phase === 0 && m.introVideo) await runVideo(S, m.introVideo.file, m.introVideo); // the opening film comes before everything, the title card included
     if (phase === 0 && m.card !== false) await missionCard(S, m);
     else if (phase > 0) toast('체크포인트');
     for (let i = phase; i < m.phases.length; i++) {

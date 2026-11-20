@@ -58,12 +58,22 @@ class Vehicle {
     const clear = (sd) => { const px = -fz * sd, pz = fx * sd, tx = blk.pos.x + px * off, tz = blk.pos.z + pz * off, tl = (tx - this.pos.x) * fz - (tz - this.pos.z) * fx;
       for (const v of G.vehicles) { if (v === this || v === blk || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz;
         if (f < -(this.size[2] + v.size[2] + (early ? 8 : 2)) || f > bf + f2 + v.size[2] + 4) continue; const lat = rx * fz - rz * fx; if (Math.abs(lat - tl) < this.size[0] + Math.max(v.size[0], v.size[2] * 0.5) + 0.8) return false; }
-      return true; };
-    let side = (bl > 0 ? -1 : 1) * (this.detours % 2 ? 1 : -1); if (!clear(side)) { if (clear(-side)) side = -side; else if (early) return false; }
+      return !this.wallOn(this.pos.x, this.pos.z, tx + fx * f1, tz + fz * f1) && !this.wallOn(tx + fx * f1, tz + fz * f1, tx + fx * f2, tz + fz * f2); };
+    // a side that runs into a wall, a container stack or a building is never taken, however clear of traffic it is
+    const solid = (sd) => { const tx = blk.pos.x - fz * sd * off, tz = blk.pos.z + fx * sd * off; return this.wallOn(this.pos.x, this.pos.z, tx + fx * f1, tz + fz * f1) || this.wallOn(tx + fx * f1, tz + fz * f1, tx + fx * f2, tz + fz * f2); };
+    let side = (bl > 0 ? -1 : 1) * (this.detours % 2 ? 1 : -1); if (!clear(side)) { if (clear(-side)) side = -side; else if (early) return false; else if (solid(side)) { if (solid(-side)) return false; side = -side; } }
     const px = -fz * side, pz = fx * side;
     const a1 = v3(blk.pos.x + px * off + fx * f1, 0, blk.pos.z + pz * off + fz * f1), a2 = v3(blk.pos.x + px * off + fx * f2, 0, blk.pos.z + pz * off + fz * f2);
     let j = this.pi; while (j < this.path.length - 1 && j - this.pi < 12) { const q = this.path[j], dx = q.x - blk.pos.x, dz = q.z - blk.pos.z; if (dx * fx + dz * fz < f2 && dx * dx + dz * dz < (f2 + 25) ** 2) j++; else break; }
     this.path.splice(this.pi, j - this.pi, a1, a2); return true;
+  }
+  /* does the strip a hull sweeps from (ax,az) to (bx,bz) cross anything solid and tall (walls, container stacks, buildings)? */
+  wallOn(ax, az, bx, bz) {
+    const hw = this.size[0] + 0.25, x0 = Math.min(ax, bx) - hw, x1 = Math.max(ax, bx) + hw, z0 = Math.min(az, bz) - hw, z1 = Math.max(az, bz) + hw, L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / 1.2));
+    for (const c of G.colliders) { if (c.max.x < x0 || c.min.x > x1 || c.max.z < z0 || c.min.z > z1) continue;
+      for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n; if (x + hw < c.min.x || x - hw > c.max.x || z + hw < c.min.z || z - hw > c.max.z) continue;
+        const gy = G.groundAt(x, z); if (c.max.y > gy + 1.2 && c.min.y < gy + 2.2) return true; } }
+    return false;
   }
   unoverlap() {
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw), L = Math.max(0, this.size[2] - this.size[0]), w = this.size[0] * 0.85;

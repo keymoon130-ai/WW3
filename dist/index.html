@@ -5485,12 +5485,22 @@ class Vehicle {
     const clear = (sd) => { const px = -fz * sd, pz = fx * sd, tx = blk.pos.x + px * off, tz = blk.pos.z + pz * off, tl = (tx - this.pos.x) * fz - (tz - this.pos.z) * fx;
       for (const v of G.vehicles) { if (v === this || v === blk || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz;
         if (f < -(this.size[2] + v.size[2] + (early ? 8 : 2)) || f > bf + f2 + v.size[2] + 4) continue; const lat = rx * fz - rz * fx; if (Math.abs(lat - tl) < this.size[0] + Math.max(v.size[0], v.size[2] * 0.5) + 0.8) return false; }
-      return true; };
-    let side = (bl > 0 ? -1 : 1) * (this.detours % 2 ? 1 : -1); if (!clear(side)) { if (clear(-side)) side = -side; else if (early) return false; }
+      return !this.wallOn(this.pos.x, this.pos.z, tx + fx * f1, tz + fz * f1) && !this.wallOn(tx + fx * f1, tz + fz * f1, tx + fx * f2, tz + fz * f2); };
+    // a side that runs into a wall, a container stack or a building is never taken, however clear of traffic it is
+    const solid = (sd) => { const tx = blk.pos.x - fz * sd * off, tz = blk.pos.z + fx * sd * off; return this.wallOn(this.pos.x, this.pos.z, tx + fx * f1, tz + fz * f1) || this.wallOn(tx + fx * f1, tz + fz * f1, tx + fx * f2, tz + fz * f2); };
+    let side = (bl > 0 ? -1 : 1) * (this.detours % 2 ? 1 : -1); if (!clear(side)) { if (clear(-side)) side = -side; else if (early) return false; else if (solid(side)) { if (solid(-side)) return false; side = -side; } }
     const px = -fz * side, pz = fx * side;
     const a1 = v3(blk.pos.x + px * off + fx * f1, 0, blk.pos.z + pz * off + fz * f1), a2 = v3(blk.pos.x + px * off + fx * f2, 0, blk.pos.z + pz * off + fz * f2);
     let j = this.pi; while (j < this.path.length - 1 && j - this.pi < 12) { const q = this.path[j], dx = q.x - blk.pos.x, dz = q.z - blk.pos.z; if (dx * fx + dz * fz < f2 && dx * dx + dz * dz < (f2 + 25) ** 2) j++; else break; }
     this.path.splice(this.pi, j - this.pi, a1, a2); return true;
+  }
+  /* does the strip a hull sweeps from (ax,az) to (bx,bz) cross anything solid and tall (walls, container stacks, buildings)? */
+  wallOn(ax, az, bx, bz) {
+    const hw = this.size[0] + 0.25, x0 = Math.min(ax, bx) - hw, x1 = Math.max(ax, bx) + hw, z0 = Math.min(az, bz) - hw, z1 = Math.max(az, bz) + hw, L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / 1.2));
+    for (const c of G.colliders) { if (c.max.x < x0 || c.min.x > x1 || c.max.z < z0 || c.min.z > z1) continue;
+      for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n; if (x + hw < c.min.x || x - hw > c.max.x || z + hw < c.min.z || z - hw > c.max.z) continue;
+        const gy = G.groundAt(x, z); if (c.max.y > gy + 1.2 && c.min.y < gy + 2.2) return true; } }
+    return false;
   }
   unoverlap() {
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw), L = Math.max(0, this.size[2] - this.size[0]), w = this.size[0] * 0.85;
@@ -5712,7 +5722,7 @@ class Proj {
   constructor(kind, pos, vel, o = {}) {
     this.kind = kind; this.pos = pos.clone(); this.vel = vel.clone(); this.o = o; this.team = o.team || 'player'; this.owner = o.owner || null;
     this.age = 0; this.alive = true;
-    this.life = { rocket: 6, shell: 3, grenade: o.fuse ?? 2.8, gl: 5, flak: 1.8, missile: 10, naval: 6, mortar: 8 }[kind] ?? 5;
+    this.life = o.life ?? { rocket: 6, shell: 3, grenade: o.fuse ?? 2.8, gl: 5, flak: 1.8, missile: 10, naval: 6, mortar: 8 }[kind] ?? 5;
     if (kind === 'rocket' || kind === 'missile') { this.mesh = new THREE.Mesh(PROJ_MESH.rocket, mat('gunM', { color: 0x1a1b1c })); G.world.add(this.mesh); }
     if (kind === 'gl') { this.mesh = new THREE.Mesh(PROJ_MESH.grenade, mat('glround', { color: 0x6a6a3a })); G.world.add(this.mesh); }
     if (kind === 'grenade') { this.mesh = new THREE.Mesh(PROJ_MESH.grenade, mat('nade', { color: 0x3a4030 })); G.world.add(this.mesh); this.spin = v3(rand(-8, 8), rand(-8, 8), rand(-8, 8)); }
@@ -7451,13 +7461,36 @@ function fireWeapon(w, st) {
 }
 function missionMuzzle() { return camera.position; }
 function missileGuide() { if (!(P.ads > 0.5 && curId() === 'atgm')) return null; const d = v3(); camera.getWorldDirection(d); const r = rayWorld(camera.position, d, 600); return camera.position.clone().addScaledVector(d, Math.max(r.t, 20)); }
+/* a flat naval shot would bury itself in a hill between the ship and the mark: lob it just high enough to clear the ground on the way */
+function navalFlight(from, tp, g) {
+  for (let T = 2.4; T <= 6.01; T += 0.4) { let ok = true; const vy = (tp.y - from.y + 0.5 * g * T * T) / T;
+    let px = from.x, py = from.y, pz = from.z;
+    for (let i = 1; i <= 48 && ok; i++) { const t = (T * i) / 48, k = i / 48, x = lerp(from.x, tp.x, k), z = lerp(from.z, tp.z, k), y = from.y + vy * t - 0.5 * g * t * t;
+      const near = Math.hypot(x - tp.x, z - tp.z) < 6; if (!near && y < G.groundAt(x, z) + 2) ok = false;
+      else if (!near) { const d = v3(x - px, y - py, z - pz), L = d.length(); d.divideScalar(L); const r = rayWorld(v3(px, py, pz), d, L); if (r.c && r.t < L) ok = false; } // anything solid short of the last few metres stops the shell
+      px = x; py = y; pz = z; }
+    if (ok) return T; }
+  return 0;
+}
+/* the ship's guns: four rounds on the mark */
+function navalSalvo(at) {
+    for (let i = 0; i < 4; i++) setGameTimeout(() => { const tp = at.clone().add(v3(rand(-4, 4), 0, rand(-4, 4))); const from = G.navalGun.clone().add(v3(rand(-6, 6), 0, 0)), gch = 4, T = navalFlight(from, tp, gch);
+      if (T) { const vel = v3((tp.x - from.x) / T, (tp.y - from.y + 0.5 * gch * T * T) / T, (tp.z - from.z) / T); new Proj('naval', from, vel, { target: tp, src: PT, life: T + 3 }); }
+      else { /* masked by a ridge: high-angle fire — the shell comes down steeply from the ship's side of the sky */ const b = v3(from.x - tp.x, 0, from.z - tp.z).normalize(), top = tp.clone().addScaledVector(b, 55).add(v3(0, 210, 0)); new Proj('naval', top, v3().subVectors(tp, top).normalize().multiplyScalar(150), { target: tp, src: PT, life: 6 }); } for (let k = 0; k < 4; k++) particle({ add: true, x: from.x, y: from.y, z: from.z, life: 0.3, size: rand(10, 18), color: [1, 0.7, 0.4] }); for (let k = 0; k < 12; k++) particle({ x: from.x, y: from.y, z: from.z, vx: rand(-4, 4), vy: rand(0, 3), vz: rand(-4, 4), life: rand(1.5, 3), size: 2, size1: 7, alpha: 0.4, color: [0.7, 0.7, 0.7], drag: 1.5 }); flashLight(from, 0xffa050, 80, 200, 0.2); SFX.shot('cannon', from); }, 2.4 + i * 0.45);
+}
+/* who answers the designator in this mission: the ship's guns, aircraft or the artillery — every message names the right one */
+function desigSupport() {
+  if (G.airMode || G.strikeMode === 'air') return { kind: 'air', wait: '다음 공격 편대 진입까지', ready: '공격 가능', reload: '편대 진입' };
+  if (G.strikeMode === 'arty') return { kind: 'arty', wait: '포병 재장전 중…', ready: '사격 준비', reload: '재장전' };
+  return { kind: 'naval', wait: '함포 재장전 중…', ready: '사격 준비', reload: '재장전' };
+}
 function fireDesignator() {
   if (P.ads < 0.8) { hint('우클릭으로 조준한 뒤 표적을 지정하세요', 2); return; }
-  if ((G.navalCd || 0) > G.time) { hint(`함포 재장전 중… ${Math.ceil(G.navalCd - G.time)}초`, 1.5); return; }
+  if ((G.navalCd || 0) > G.time) { hint(`${desigSupport().wait} ${Math.ceil(G.navalCd - G.time)}초`, 1.5); return; }
   const d = v3(); camera.getWorldDirection(d); const r = rayWorld(camera.position, d, 700); if (!r.c) { hint('표적을 지정할 수 없어요', 1.5); return; }
   const at = camera.position.clone().addScaledVector(d, r.t);
   G.navalCd = G.time + (WD.desig.cooldown || 14); SFX.radio();
-  subtitle('함포 통제', G.navalShip ? '좌표 수신. 함포 사격 개시!' : '좌표 수신. 사격 개시, 탄착까지 5초.', 3, true);
+  if (desigSupport().kind === 'naval') subtitle('함포 통제', G.navalShip ? '좌표 수신. 함포 사격 개시!' : '좌표 수신. 사격 개시, 탄착까지 5초.', 3, true);
   G.navalMark = { pos: at.clone(), t: G.time + 5.5 };
   if (G.airMode) {
     subtitle('항공 통제', '좌표 수신. 이글 2-1, 공격 진입한다.', 3, true); G.navalCd = G.time + 10;
@@ -7476,10 +7509,8 @@ function fireDesignator() {
     for (let i = 0; i < 8; i++) setGameTimeout(() => { const tp = at.clone().add(v3(rand(-8, 8), 0, rand(-8, 8))); new Proj('naval', tp.clone().add(v3(rand(-6, 6), 160, rand(-6, 6))), v3(rand(-2, 2), -150, rand(-2, 2)), { target: tp, src: PT }); }, 3.6 + i * 0.25);
     return;
   }
-  if (G.navalShip && G.navalGun) {
-    for (let i = 0; i < 4; i++) setGameTimeout(() => { const tp = at.clone().add(v3(rand(-4, 4), 0, rand(-4, 4))); const from = G.navalGun.clone().add(v3(rand(-6, 6), 0, 0)); const T = 2.4, gch = 4; const vel = v3((tp.x - from.x) / T, (tp.y - from.y + 0.5 * gch * T * T) / T, (tp.z - from.z) / T);
-      new Proj('naval', from, vel, { target: tp, src: PT }); for (let k = 0; k < 4; k++) particle({ add: true, x: from.x, y: from.y, z: from.z, life: 0.3, size: rand(10, 18), color: [1, 0.7, 0.4] }); for (let k = 0; k < 12; k++) particle({ x: from.x, y: from.y, z: from.z, vx: rand(-4, 4), vy: rand(0, 3), vz: rand(-4, 4), life: rand(1.5, 3), size: 2, size1: 7, alpha: 0.4, color: [0.7, 0.7, 0.7], drag: 1.5 }); flashLight(from, 0xffa050, 80, 200, 0.2); SFX.shot('cannon', from); }, 2.4 + i * 0.45);
-  } else
+  if (G.navalShip && G.navalGun) navalSalvo(at);
+  else
   for (let i = 0; i < 4; i++) setGameTimeout(() => { const tp = at.clone().add(v3(rand(-5, 5), 0, rand(-5, 5))); new Proj('naval', tp.clone().add(v3(-60, 260, 120)), v3(60, -260, -120).normalize().multiplyScalar(140), { target: tp, src: PT }); }, 3 + i * 0.5);
 }
 function startReload() {
@@ -7622,7 +7653,7 @@ function updateHUD(dt) {
   tutTick(dt); aggroTick(dt);
   const w = curW(), st = P.ammo[curId()] || { mag: 0, res: 0 };
   hud.wname.textContent = w.name;
-  if (w.noFire || w.noAmmo) { hud.mag.textContent = ''; hud.res.textContent = w.special === 'naval' ? ((G.navalCd || 0) > G.time ? `재장전 ${Math.ceil(G.navalCd - G.time)}s` : '사격 준비') : ''; }
+  if (w.noFire || w.noAmmo) { hud.mag.textContent = ''; hud.res.textContent = w.special === 'naval' ? (() => { const ds = desigSupport(); return (G.navalCd || 0) > G.time ? `${ds.reload} ${Math.ceil(G.navalCd - G.time)}s` : ds.ready; })() : ''; }
   else { hud.mag.textContent = st.mag; hud.res.textContent = st.res > 9000 ? '/ ∞' : '/ ' + st.res; hud.mag.classList.toggle('low', st.mag <= Math.ceil((w.mag ?? 1) * 0.25)); }
   hud.nades.textContent = '●'.repeat(Math.min(P.nades, 6));
   // crosshair spread
@@ -7643,6 +7674,7 @@ function updateHUD(dt) {
   const ov = (w.overlay && P.ads > 0.85 && !G.cut) ? w.overlay : '';
   hud.binoc.className = ov ? 'on ' + ov : '';
   $('binocFx').className = (ov === 'binoc' || ov === 'desig') ? 'on ' + ov : '';
+  if (ov === 'desig') { const lab = $('binocFx').firstChild, k = desigSupport().kind, t = '좌클릭 · ' + (k === 'air' ? '항공 폭격 요청' : k === 'arty' ? '포병 사격 요청' : '함포 사격 요청'); if (lab && lab.textContent !== t) lab.textContent = t; }
   // grenade warnings
   let ni = 0; const nb = $('nadeIcons');
   for (const pr of G.projs) { if (pr.kind !== 'grenade' || pr.team === 'player' || !pr.alive) continue; const d = pr.pos.distanceTo(P.pos); if (d > 13) continue;
@@ -8148,6 +8180,7 @@ async function startMission(idx, phase = 0, keepSub = false) {
   try {
     const ph0 = m.phases[phase];
     if (ph0.setup) ph0.setup(S);
+    if (phase === 0 && m.introVideo) await runVideo(S, m.introVideo.file, m.introVideo); // the opening film comes before everything, the title card included
     if (phase === 0 && m.card !== false) await missionCard(S, m);
     else if (phase > 0) toast('체크포인트');
     for (let i = phase; i < m.phases.length; i++) {
@@ -8493,10 +8526,11 @@ async function runVideo(S, file, o = {}) {
     if (!G.ffwd) {
       v.volume = vol(); v.style.opacity = 1; // cut straight in, no fade
       const ended = new Promise((res) => { v.onended = res; v.onerror = res; setTimeout(res, ((v.duration || 120) + 5) * 1000); });
-      try { await v.play(); } catch (e) { v.muted = true; try { await v.play(); } catch (e2) {} }
+      let fin = false;
+      v.play().catch(() => { v.muted = true; v.play().catch(() => (fin = true)); }); // nothing can play it: go straight on
       raf = requestAnimationFrame(tick);
-      let fin = false; ended.then(() => (fin = true));
-      await S.until(() => fin || G.ffwd);
+      ended.then(() => (fin = true));
+      await S.until(() => fin || G.ffwd || G.testMode); // the autopilot steps game time far faster than a film plays: it skips the film
       v.style.opacity = 0;
     }
     await S.wait(hold);
@@ -9984,6 +10018,7 @@ defMission({
   dateText: '2032년 2월 11일 17:40', dateShort: '2032.02.11', place: '서울 · 세종대로 → 노량진역', placeShort: '서울 철수', who: '서한준 이병 · 제12국경수비대 3분대', whoShort: '서한준',
   env: { sky: [0x1c1416, 0x4e2a1c, 0xb2532a], glow: 0xff6a28, glowDir: [-0.85, 0.06, 0.35], fog: 0x4c3026, fogD: 0.0024, hemi: [0xb08070, 0x2c1e1a, 0.74], sun: [0xff8c48, 0.8], sunDir: [-0.85, 0.16, 0.35], exposure: 1.12, stars: false, snow: 0.3, ash: true, snowFall: 0.5, viewDist: 420, battle: 1, flashes: 0.3, windSnd: 0.3 },
   loadout: { weapons: ['rifle', 'pistol'], nades: 4 },
+  introVideo: { file: 'm7-intro.mp4', black: 1.4, fade: 2.2, hold: 4 }, // emergency broadcast, before the title card
   bounds: [-3600, -7400, 1400, 700],
   build(S) {
     hgCity({ gate: 'burn', tower63: 'burn' });
@@ -10007,7 +10042,7 @@ defMission({
       setup(S) { const p = M7.L(1, 5); S.player(p.x, p.z, M7.yawS + Math.PI); },
       async run(S) {
         const { L, Ls } = M7;
-        S.fade(1, 0); await runVideo(S, 'm7-intro.mp4', { black: 1.4, fade: 2.2, hold: 4 }); S.fade(0, 1.5);
+
         await S.say('윤하린 중사', '한 달 동안 밀리고 밀려서… 여기까지 왔습니다.');
         await S.radio('수도방위사령부', '3분대, 광화문역에 대피한 시민들이 있다. 버스에 다 태울 때까지 세종대로를 막아라.', { dur: 3.6 });
         S.hint('K21 뒤쪽 열린 램프에서 <kbd>F</kbd> · 대공미사일과 RPG를 꺼낼 수 있어요', 6);
@@ -11332,7 +11367,7 @@ defMission({
         P.ride = { obj: mine.m.root, off: [-0.25, 1.32, 1.0] }; P.yaw = mine.yaw; P.pitch = -0.05; P.noFire = false;
         G.hitMul = 0.55; const regen = S.every(0.5, () => { if (P.alive && P.hp < 100 && G.time - P.lastHit > 2.5) P.hp = Math.min(100, P.hp + 5); });
         // the rest of our lane pulls over to the lane edges so our ACV can run straight up the middle; the other lanes push on
-        cols[2].forEach((v) => { if (!v || !v.alive || v === mine) return; const side = v.type === 'tank' ? 6.2 : -5.4; v.path = [v3(24 + side, 0, v.pos.z - 4)]; v.pi = 0; v.speed = 3; v.stopped = false; });
+        cols[2].forEach((v) => { if (!v || !v.alive || v === mine) return; const side = v.type === 'tank' ? 4.8 : -5.4; /* to the lane edge, short of the container stacks at ±7.8 */ v.path = [v3(24 + side, 0, v.pos.z - 14)]; v.pi = 0; v.speed = 3; v.stopped = false; });
         mine.stopped = true; S.later(3.5, () => { mine.path = [v3(24, 0, -520), v3(24, 0, -560), v3(24, 0, -586)]; mine.pi = 0; mine.speed = 7; mine.stopped = false; mine.o.yieldPeople = false; });
         cols.forEach((col, i) => { if (i === 2) return; col.forEach((v, k) => { if (!v || !v.alive) return; const gx = G.breachX[i]; v.path = [v3(gx, 0, -560 + k * 13), v3(gx, 0, -580 + k * 13)]; v.pi = 0; v.speed = 6; v.stopped = false; }); });
         G.armorFree = true;

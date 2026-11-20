@@ -320,6 +320,7 @@ defMission({
   dateText: '2032년 2월 11일 17:40', dateShort: '2032.02.11', place: '서울 · 세종대로 → 노량진역', placeShort: '서울 철수', who: '서한준 이병 · 제12국경수비대 3분대', whoShort: '서한준',
   env: { sky: [0x1c1416, 0x4e2a1c, 0xb2532a], glow: 0xff6a28, glowDir: [-0.85, 0.06, 0.35], fog: 0x4c3026, fogD: 0.0024, hemi: [0xb08070, 0x2c1e1a, 0.74], sun: [0xff8c48, 0.8], sunDir: [-0.85, 0.16, 0.35], exposure: 1.12, stars: false, snow: 0.3, ash: true, snowFall: 0.5, viewDist: 420, battle: 1, flashes: 0.3, windSnd: 0.3 },
   loadout: { weapons: ['rifle', 'pistol'], nades: 4 },
+  introVideo: { file: 'm7-intro.mp4', black: 1.4, fade: 2.2, hold: 4 }, // emergency broadcast, before the title card
   bounds: [-3600, -7400, 1400, 700],
   build(S) {
     hgCity({ gate: 'burn', tower63: 'burn' });
@@ -343,7 +344,7 @@ defMission({
       setup(S) { const p = M7.L(1, 5); S.player(p.x, p.z, M7.yawS + Math.PI); },
       async run(S) {
         const { L, Ls } = M7;
-        S.fade(1, 0); await runVideo(S, 'm7-intro.mp4', { black: 1.4, fade: 2.2, hold: 4 }); S.fade(0, 1.5);
+
         await S.say('윤하린 중사', '한 달 동안 밀리고 밀려서… 여기까지 왔습니다.');
         await S.radio('수도방위사령부', '3분대, 광화문역에 대피한 시민들이 있다. 버스에 다 태울 때까지 세종대로를 막아라.', { dur: 3.6 });
         S.hint('K21 뒤쪽 열린 램프에서 <kbd>F</kbd> · 대공미사일과 RPG를 꺼낼 수 있어요', 6);

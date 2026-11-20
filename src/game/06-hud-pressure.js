@@ -66,7 +66,7 @@ function updateHUD(dt) {
   tutTick(dt); aggroTick(dt);
   const w = curW(), st = P.ammo[curId()] || { mag: 0, res: 0 };
   hud.wname.textContent = w.name;
-  if (w.noFire || w.noAmmo) { hud.mag.textContent = ''; hud.res.textContent = w.special === 'naval' ? ((G.navalCd || 0) > G.time ? `재장전 ${Math.ceil(G.navalCd - G.time)}s` : '사격 준비') : ''; }
+  if (w.noFire || w.noAmmo) { hud.mag.textContent = ''; hud.res.textContent = w.special === 'naval' ? (() => { const ds = desigSupport(); return (G.navalCd || 0) > G.time ? `${ds.reload} ${Math.ceil(G.navalCd - G.time)}s` : ds.ready; })() : ''; }
   else { hud.mag.textContent = st.mag; hud.res.textContent = st.res > 9000 ? '/ ∞' : '/ ' + st.res; hud.mag.classList.toggle('low', st.mag <= Math.ceil((w.mag ?? 1) * 0.25)); }
   hud.nades.textContent = '●'.repeat(Math.min(P.nades, 6));
   // crosshair spread
@@ -87,6 +87,7 @@ function updateHUD(dt) {
   const ov = (w.overlay && P.ads > 0.85 && !G.cut) ? w.overlay : '';
   hud.binoc.className = ov ? 'on ' + ov : '';
   $('binocFx').className = (ov === 'binoc' || ov === 'desig') ? 'on ' + ov : '';
+  if (ov === 'desig') { const lab = $('binocFx').firstChild, k = desigSupport().kind, t = '좌클릭 · ' + (k === 'air' ? '항공 폭격 요청' : k === 'arty' ? '포병 사격 요청' : '함포 사격 요청'); if (lab && lab.textContent !== t) lab.textContent = t; }
   // grenade warnings
   let ni = 0; const nb = $('nadeIcons');
   for (const pr of G.projs) { if (pr.kind !== 'grenade' || pr.team === 'player' || !pr.alive) continue; const d = pr.pos.distanceTo(P.pos); if (d > 13) continue;
