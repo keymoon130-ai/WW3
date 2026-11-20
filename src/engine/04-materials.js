@@ -60,7 +60,7 @@ function tex(name) {
         });
       } else t = canvasTex(4, 4, (g) => { g.fillStyle = '#888'; g.fillRect(0, 0, 4, 4); });
   }
-  TX[name] = t; return t;
+  TX[name] = artTex(name, t); return t;
 }
 function camoTex(cols) {
   return canvasTex(64, 64, (g, w, h) => {
@@ -76,10 +76,10 @@ function mat(key, o = {}) {
   if (o.emissive) { p.emissive = new THREE.Color(o.emissive); p.emissiveIntensity = o.ei ?? 1; }
   if (o.transparent) { p.transparent = true; p.opacity = o.opacity ?? 1; p.depthWrite = o.depthWrite ?? false; }
   if (o.side) p.side = o.side;
-  MATS[key] = new THREE.MeshStandardMaterial(p);
-  return MATS[key];
+  MATS[key] = new THREE.MeshStandardMaterial(p); MATS[key].userData.mapName = o.map || null;
+  return artMat(key, MATS[key]);
 }
-const basicMat = (key, color, o = {}) => MATS[key] || (MATS[key] = new THREE.MeshBasicMaterial(Object.assign({ color }, o)));
+const basicMat = (key, color, o = {}) => MATS[key] || (MATS[key] = artMat(key, new THREE.MeshBasicMaterial(Object.assign({ color }, o))));
 
 /* ---------------- geometry helpers ---------------- */
 function boxGeo(w, h, d, tile = 0) {

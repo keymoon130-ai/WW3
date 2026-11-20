@@ -92,7 +92,7 @@ function m10Gwanghwamun() {
    In admin mode T jumps ahead: during the ride it finishes the current stretch (as the sample's T does); on foot it puts you on the current objective. */
 addEventListener('keydown', (e) => {
   if (!G.mission || G.mission.id !== 'm10') return;
-  if (e.ctrlKey && (e.code === 'KeyO' || e.code === 'KeyP')) { e.preventDefault(); if ((e.code === 'KeyP' && K.KeyO) || (e.code === 'KeyO' && K.KeyP)) { G.admin = !G.admin; toast(G.admin ? '관리자 모드' : '관리자 모드 해제'); } return; }
+  /* Ctrl + O + P itself is handled for every mission in game/14-workshop.js */
   if (!G.admin || e.code !== 'KeyT' || e.repeat || G.mode !== 'play' || G.paused || G.cut) return;
   if (P.ride && G.hgSkip) { G.hgSkip(e); return; }
   const o = G.objPos; if (!o) return; for (const a of G.actors) if (a.alive && a.team === 'enemy') a.hurt(99999, PT);

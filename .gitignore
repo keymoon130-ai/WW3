@@ -1,5 +1,6 @@
 node_modules/
 dist/*
 !dist/WW3.html
+!dist/index.html
 __pycache__/
 shots/

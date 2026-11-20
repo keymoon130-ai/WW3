@@ -56,6 +56,7 @@ full = ('<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
         + head + '</head>\n<body>\n' + body + '\n' + script + '</body>\n</html>\n')
 open(os.path.join(d, 'dist', 'WW3.html'), 'w', encoding='utf-8').write(full)
+open(os.path.join(d, 'dist', 'index.html'), 'w', encoding='utf-8').write(full)  # the site root (Cloudflare serves index.html)
 print(len(full), 'bytes', js.count('\n'), 'js lines')
 
 # the graphics sample: same game, boots into the 한강대로 1:1 chooser

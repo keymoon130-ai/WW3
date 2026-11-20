@@ -30,3 +30,8 @@ python3 build.py     # → dist/WW3.html
 
 각 미션 파일에는 그 미션의 맵을 짓는 함수가 `defMission(...)` 앞에 같이 들어 있어요. `00-shared*.js`는 그 막(act)에서 함께 쓰는 함수예요.
 `missions/act2/m7-systems.js`는 미션 7의 전투 연출(편대 비행, 공수 강하, 서울역 폭격, 공병, 조명탄 등)이에요.
+
+## Cloudflare 배포
+- **Workers**(저장소 연결): 루트의 `wrangler.jsonc`가 `dist/`를 정적 사이트로 내보내요. 빌드 명령은 비워 두고, 배포 명령은 기본값 `npx wrangler deploy`. `name`은 대시보드의 Worker 이름과 같아야 해요.
+- **Pages**: 빌드 명령 비움, 빌드 출력 디렉터리 `dist`.
+- 사이트 루트는 `dist/index.html`(= `WW3.html`과 같은 파일, `build.py`가 함께 만들어요).

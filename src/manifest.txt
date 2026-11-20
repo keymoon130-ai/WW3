@@ -3,6 +3,7 @@ engine/01-core.js
 engine/02-renderer.js
 engine/03-lights-sky.js
 engine/04-materials.js
+engine/04b-art.js
 engine/05-state-collision.js
 engine/06-particles.js
 engine/07-environment.js
@@ -70,4 +71,5 @@ missions/sample.js
 world/seoul/07-seoul-station.js
 world/seoul/08-smoke-63.js
 world/seoul/09-noryangjin.js
+game/14-workshop.js
 boot.js

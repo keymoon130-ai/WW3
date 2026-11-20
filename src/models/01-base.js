@@ -27,8 +27,10 @@ function concatGeos(list) {
 }
 /* merge the direct mesh children of a group by material (keeps sub-groups such as turrets/wheels) */
 function mergeLocal(group) {
+  if (G.wsNoMerge) return; // the workshop keeps every part separate so each one can be picked
   const by = new Map(), rm = [];
   for (const c of group.children) {
+    artPart(c); if (c.userData.pid != null && ART.model[c.userData.mkey]?.[c.userData.pid]?.hide) { rm.push(c); continue; } // a part hidden in the workshop is left out
     if (!c.isMesh || c.userData.nomerge || c.material.transparent) continue;
     c.updateMatrix(); const g = c.geometry.index ? c.geometry.toNonIndexed() : c.geometry.clone(); g.clearGroups(); g.applyMatrix4(c.matrix);
     const k = c.material.uuid; if (!by.has(k)) by.set(k, { m: c.material, g: [] }); by.get(k).g.push(g); rm.push(c);
