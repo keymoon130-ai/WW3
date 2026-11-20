@@ -30,9 +30,9 @@ function cityProps() {
 function jetPass(from, to, o = {}) {
   const j = makeJetMesh(o.color); const a = v3(...from), b = v3(...to); j.root.position.copy(a); j.root.lookAt(b); j.root.rotateY(Math.PI); G.world.add(j.root);
   const L = a.distanceTo(b), sp = o.speed ?? 150; let t = 0, roared = false;
-  for (const [bx, bz] of o.bombs || []) { // time when the jet is over the target, plus fall time
+  for (const [bx, bz, by] of o.bombs || []) { // time when the jet is over the target, plus fall time
     const k = clamp(((bx - a.x) * (b.x - a.x) + (bz - a.z) * (b.z - a.z)) / (L * L), 0, 1);
-    setGameTimeout(() => { const p = v3(bx, G.groundAt(bx, bz) + 0.5, bz); SFX.whistle(p); setGameTimeout(() => { explode(p, { radius: 9, dmg: o.dmg ?? 220, vdmg: o.vdmg ?? 400, size: 2.6, noPlayer: !!o.noPlayer, src: o.src || null }); addEmitter(p.clone().add(v3(0, 1, 0)), 'fire', 1.2, 18, 40); addEmitter(p.clone().add(v3(0, 3, 0)), 'smoke', 1, 2, 60); }, 0.9); }, (k * L) / sp + 0.3);
+    setGameTimeout(() => { const p = v3(bx, by ?? G.groundAt(bx, bz) + 0.5, bz); SFX.whistle(p); setGameTimeout(() => { explode(p, { radius: 9, dmg: o.dmg ?? 220, vdmg: o.vdmg ?? 400, size: 2.6, noPlayer: !!o.noPlayer, noAlly: !!o.noAlly, src: o.src || null }); addEmitter(p.clone().add(v3(0, 1, 0)), 'fire', 1.2, 18, 40); addEmitter(p.clone().add(v3(0, 3, 0)), 'smoke', 1, 2, 60); }, 0.9); }, (k * L) / sp + 0.3);
   }
   G.updaters.push((dt) => {
     t += dt; const k = Math.min(1, (t * sp) / L); j.root.position.lerpVectors(a, b, k);

@@ -8851,9 +8851,9 @@ function cityProps() {
 function jetPass(from, to, o = {}) {
   const j = makeJetMesh(o.color); const a = v3(...from), b = v3(...to); j.root.position.copy(a); j.root.lookAt(b); j.root.rotateY(Math.PI); G.world.add(j.root);
   const L = a.distanceTo(b), sp = o.speed ?? 150; let t = 0, roared = false;
-  for (const [bx, bz] of o.bombs || []) { // time when the jet is over the target, plus fall time
+  for (const [bx, bz, by] of o.bombs || []) { // time when the jet is over the target, plus fall time
     const k = clamp(((bx - a.x) * (b.x - a.x) + (bz - a.z) * (b.z - a.z)) / (L * L), 0, 1);
-    setGameTimeout(() => { const p = v3(bx, G.groundAt(bx, bz) + 0.5, bz); SFX.whistle(p); setGameTimeout(() => { explode(p, { radius: 9, dmg: o.dmg ?? 220, vdmg: o.vdmg ?? 400, size: 2.6, noPlayer: !!o.noPlayer, src: o.src || null }); addEmitter(p.clone().add(v3(0, 1, 0)), 'fire', 1.2, 18, 40); addEmitter(p.clone().add(v3(0, 3, 0)), 'smoke', 1, 2, 60); }, 0.9); }, (k * L) / sp + 0.3);
+    setGameTimeout(() => { const p = v3(bx, by ?? G.groundAt(bx, bz) + 0.5, bz); SFX.whistle(p); setGameTimeout(() => { explode(p, { radius: 9, dmg: o.dmg ?? 220, vdmg: o.vdmg ?? 400, size: 2.6, noPlayer: !!o.noPlayer, noAlly: !!o.noAlly, src: o.src || null }); addEmitter(p.clone().add(v3(0, 1, 0)), 'fire', 1.2, 18, 40); addEmitter(p.clone().add(v3(0, 3, 0)), 'smoke', 1, 2, 60); }, 0.9); }, (k * L) / sp + 0.3);
   }
   G.updaters.push((dt) => {
     t += dt; const k = Math.min(1, (t * sp) / L); j.root.position.lerpVectors(a, b, k);
@@ -12203,8 +12203,8 @@ function buildPyongyang() {
   signBoard(0, 30, PY.station + 15.2, '평 양', { w: 16, bg: '#8a1a1a', size: 84 });
   const clk = new THREE.Mesh(new THREE.CircleGeometry(2.6, 24), mat('clock', { color: 0xf0ead8, emissive: 0x403a30 })); clk.position.set(0, 36, PY.station + 15.1); G.world.add(clk);
   // wrecks, barricades, rubble in the square and the avenue
-  for (let i = 0; i < 30; i++) { const z = rand(PY.station + 40, PY.quay - 20), x = rand(-14, 14); if (Math.abs(x) < 4 && z > PY.sq0) continue; Math.random() < 0.55 ? carProp(x, z, rand(0, 3), pick([0x4a5560, 0x6a2a2a, 0x2a3a5a]), true, Math.random() < 0.3) : rubble(x, z, rand(0.8, 1.4)); }
-  for (const z of [-300, -450, -600]) { jersey(-8, z, 6, 0.15); jersey(8, z - 6, 6, -0.15); }
+  for (let i = 0; i < 30; i++) { const z = rand(PY.station + 40, PY.quay - 20); let x = rand(-14, 14); if (z > PY.sq0 - 6) x = Math.random() < 0.3 ? rand(-1.2, 1.2) : pick([-1, 1]) * rand(12.6, 14); /* the avenue's two armour lanes (x ±5..±11) stay clear: nothing for a tank to drive through */ Math.random() < 0.55 ? carProp(x, z, rand(0, 3), pick([0x4a5560, 0x6a2a2a, 0x2a3a5a]), true, Math.random() < 0.3) : rubble(x, z, rand(0.8, 1.4)); }
+  for (const z of [-300, -450, -600]) { jersey(0, z, 4, 0); jersey(-13.4, z - 6, 4, Math.PI / 2); jersey(13.4, z - 6, 4, Math.PI / 2); } // pushed aside to the median and the kerbs
   for (let i = 0; i < 8; i++) tankWreck(rand(-50, 50), rand(PY.station + 50, PY.sq0 - 10), rand(0, 6), Math.random() < 0.5);
   for (let i = 0; i < 22; i++) { const p = v3(pick([-1, 1]) * rand(20, 40), rand(8, 30), rand(-230, -720)); addEmitter(p, 'fire', 1.1, 12); addEmitter(p.clone().add(v3(0, 6, 0)), 'smoke', 1.4, 2); }
   buildMountains(1000, 26, 0x2e3438, 60, 140, false, 0, -350);
@@ -12229,6 +12229,33 @@ function makeMLRS(x, z, yaw = 0) {
   const L = new THREE.Group(); L.position.set(0, 2.2, 1.6); L.rotation.x = -0.45; v.m.root.add(L);
   const tm = mat('mlrs', { color: 0x4a4c38, rough: 0.7 }); for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 3.2, 8), tm); t.rotation.x = Math.PI / 2; t.position.set(-0.5 + c * 0.33, r * 0.3, 0); L.add(t); }
   return v;
+}
+
+/* air cover over the armoured push: pairs of jets work ahead of the tanks, and anyone the tanks have rolled past is bombed where he stands.
+   front() = z of the leading tank (the push runs toward -z). no bomb ever touches our men, our vehicles or an objective vehicle */
+function pyAirCover(S, arm, o = {}) {
+  const front = () => { let z = 1e9; for (const v of arm) if (v.alive) z = Math.min(z, v.pos.z); return z; };
+  const marked = new Set(); let runs = 0;
+  const strike = (targets, ahead) => {
+    const pts = targets.slice(0, ahead ? 5 : 6).map((a) => { marked.add(a); return [a.pos.x, a.pos.z, a.pos.y > G.groundAt(a.pos.x, a.pos.z) + 3 ? a.pos.y + 0.6 : undefined]; });
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length, sd = Math.random() < 0.5 ? -1 : 1;
+    const from = [cx - sd * 700, rand(70, 95), cz + rand(-40, 40)], to = [cx + sd * 700, rand(80, 110), cz + rand(-40, 40)];
+    jetPass(from, to, { speed: 260, bombs: pts, noPlayer: true, noAlly: true, vdmg: 0, dmg: 400, src: null });
+    S.later(0.4, () => jetPass([from[0], from[1] + 8, from[2] + 14], [to[0], to[1] + 8, to[2] + 14], { speed: 260 }));
+    // whoever the blast missed is still caught by the stick: nobody behind the line walks away
+    S.later(4.2, () => { for (const a of targets) if (a.alive && !ahead) { FX.dust(a.pos.clone(), 6, [0.4, 0.37, 0.33], 0.6); a.hurt(999, null); } });
+    if (runs++ % 4 === 0) S.sayBg(pick(['리선우 병장', '한지운 하사', '윤하린 중사']), pick(['공군 들어온다!', '폭격 들어갑니다!', '저것 봐라, 다 날아간다!', '하늘이 우리 편이다!']), { dur: 1.8 });
+  };
+  const behind = S.every(2.2, () => { const fz = front(); if (fz > 1e8) return;
+    const t = G.actors.filter((a) => a.alive && a.team === 'enemy' && !marked.has(a) && a.pos.z > fz + 4 && (o.keep ? !o.keep(a) : true));
+    if (t.length) strike(t.sort((a, b) => b.pos.z - a.pos.z), false); });
+  const ahead = S.every(o.every ?? 8, () => { const fz = front(); if (fz > 1e8) return;
+    const t = G.actors.filter((a) => a.alive && a.team === 'enemy' && !marked.has(a) && a.pos.z < fz - 25 && a.pos.z > fz - 130 && (o.keep ? !o.keep(a) : true));
+    if (t.length) { const c = pick(t); strike(t.filter((a) => a.pos.distanceTo(c.pos) < 22), true); } });
+  // a tank never stops for a man in its way: he goes under it
+  const crush = S.every(0.1, () => { for (const v of arm) { if (!v.alive || (v.cs || 0) < 0.5) continue; const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
+    for (const a of G.actors) { if (!a.alive || a.team !== 'enemy') continue; const rx = a.pos.x - v.pos.x, rz = a.pos.z - v.pos.z; if (Math.abs(rx * fx + rz * fz) < v.size[2] + 0.4 && Math.abs(rx * fz - rz * fx) < v.size[0] + 0.3) { FX.blood(a.chest(v3())); a.hurt(999, null); } } } });
+  return { front, stop() { S.stop(behind); S.stop(ahead); S.stop(crush); } };
 }
 
 /* ========== MISSION 12 「평양」 ========== */
@@ -12367,20 +12394,21 @@ defMission({
           { type: 'k21', x: 8, z: -228, path: [[8, -420], [8, PY.sq0 + 16]], speed: 5, rpg: true, sam: true },
           { type: 'tank', x: 8, z: -250, path: [[8, -400], [9, PY.sq0 + 30]], speed: 5 },
           { type: 'k21', x: -8, z: -252, path: [[-8, -420], [-8, PY.sq0 + 28]], speed: 5, rpg: true },
-        ], { lead: 20 });
+        ], { lead: 1e9 }); // the armour does not wait for anyone: it rolls to the square at its own pace
+        for (const v of arm) v.o.noDetour = true;
+        const air = pyAirCover(S, arm); S.later(3, () => S.radio('항공 통제', '매 편대 상공 진입. 전차 앞길은 우리가 쓸어 준다. 전차 지나간 자리엔 아무것도 안 남긴다.', { dur: 3.4 }));
+        const pastTanks = (z) => () => air.front() < z - 10; // the infantry stays behind the hulls
         for (let i = 0; i < 24; i++) enemy(pick([-1, 1]) * rand(6, 16), rand(-520, -280), { tag: 'ave', view: 100, crouch: Math.random() < 0.5, kind: Math.random() < 0.25 ? 'heavy' : 'rifle' });
         for (const [sx, z, h] of [[-1, -300, 22], [1, -380, 28], [-1, -430, 26], [1, -520, 32], [-1, -580, 24]]) { const a = enemy(sx * 20.6, z, { tag: 'snip', hold: true, view: 220, acc: 1.4, y: h, yaw: sx < 0 ? -Math.PI / 2 : Math.PI / 2 }); a.marked = true; addBox(sx * 19.2, h - 0.3, z, 2.6, 0.3, 3.4, MT.concreteD()); addBox(sx * 18.0, h, z, 0.15, 1.0, 3.4, MT.metal(), { bullet: false }); }
         const pr = S.pressure({ from: [[-90, -330], [90, -330], [-90, -480], [90, -480], [0, -620]], to: () => [rand(-14, 14), P.pos.z - rand(35, 70)], tag: 'ave', max: 16, every: 0.9, heavy: 0.25, rush: 0.25 });
         S.later(6, () => S.sayBg('윤하린 중사', '고층 창가에 저격수! 표시합니다!', { dur: 2.4 }));
-        // a K2 is lost on the way
-        S.later(34, () => { const t = arm[2]; if (!t || !t.alive) return; t.invuln = false; const from = v3(-20, 26, t.pos.z - 60); new Proj('missile', from, v3().subVectors(t.pos.clone().add(v3(0, 2, 0)), from).normalize().multiplyScalar(85), { team: 'enemy' }); S.later(0.9, () => { if (t.alive) t.die(); G.shake += 0.4; S.radio('전차 3호', '3호전차 피격! 3호전차… 응답 없음!', { dur: 2.6 }); S.later(2.6, () => S.sayBg('박도현 중위', '젠장… 멈추지 마라! 계속 간다!', { dur: 2.2 })); }); });
         // two gunships of theirs
         S.later(46, async () => { await S.threat('heli', { x: -300, z: -700, path: [[-40, 40, -560], [40, 36, -420], [10, 42, -300], [-30, 38, -480]], line: '적 공격헬기 두 대! K21 뒤에서 대공미사일 꺼내십시오!' }); });
         S.later(52, () => { const h = new Vehicle('aheli', 300, -760, { path: [[40, 44, -600], [-30, 38, -460], [20, 40, -360]], loop: true, speed: 22, armed: true, hp: 520 }); G.pyHeli2 = h; const mk = S.every(0.25, () => { if (!h.alive) { S.sayBg('윤하린 중사', '두 번째 헬기 격추!', { dur: 1.8 }); return true; } if (!G.threatV) G.objPos = h.pos.clone(); }); });
         await S.lead('park', [
-          [4, -270, { run: true, say: ['박도현 중위', '전차 뒤에 붙어서 블록 하나씩 정리한다!'], bg: true }],
-          [6, -320, { fight: 'ave', leave: 10, crouch: true }], [5, -390, { run: true }],
-          [6, -450, { fight: 'ave', leave: 8, crouch: true }],
+          [4, -270, { run: true, say: ['박도현 중위', '멈추지 마라! 전차 뒤에 붙어서 쏘면서 간다!'], bg: true, until: pastTanks(-270) }],
+          [6, -320, { run: true, until: pastTanks(-320) }], [5, -390, { run: true, until: pastTanks(-390) }],
+          [6, -450, { run: true, until: pastTanks(-450) }],
         ], { follow: ['lee', 'yoon', 'han'], label: '대로를 따라 평양역 방향으로', call: '서한준! 붙어라!' });
         // the rocket launcher that has been shelling the bridgehead
         G.strikeMode = 'arty'; S.give('desig');
@@ -12394,8 +12422,8 @@ defMission({
         await S.until(() => !ml.alive);
         S.stop(mk); S.stop(barr);
         await S.radio('사단 포병', '효력사 확인. 발사대 소멸.', { dur: 2.2 });
-        await S.lead('park', [[6, -520, { run: true }], [5, -580, { fight: 'ave', leave: 6, crouch: true }], [4, PY.sq0 + 30, { run: true }]], { follow: ['lee', 'yoon', 'han'], label: '평양역 광장 앞까지 진격', call: '서한준! 거의 다 왔다!' });
-        pr.stop();
+        await S.lead('park', [[6, -520, { run: true, until: pastTanks(-520) }], [5, -580, { run: true, until: pastTanks(-580) }], [4, PY.sq0 + 30, { run: true }]], { follow: ['lee', 'yoon', 'han'], label: '평양역 광장 앞까지 진격', call: '서한준! 거의 다 왔다!' });
+        pr.stop(); air.stop();
         if (G.pyHeli2 && G.pyHeli2.alive) await S.until(() => !G.pyHeli2.alive);
         G.strikeMode = null;
       },
@@ -12411,6 +12439,7 @@ defMission({
           { type: 'k21', x: 8, z: SQ + 36, path: [[10, SQ + 12]], speed: 4, rpg: true, sam: true },
         ], { lead: 8 });
         G.armorHold = true;
+        const air = pyAirCover(S, arm, { every: 10 });
         // the square: nests, armour, and men pouring out of the station
         for (const [x, z] of [[-30, SQ - 40], [0, SQ - 52], [30, SQ - 40], [-50, SQ - 80], [50, SQ - 80]]) { sandbagRing(x, z, 2.3, 0); for (let k = 0; k < 2; k++) enemy(x - 0.8 + k * 1.6, z, { tag: 'sq', kind: 'heavy', hold: true, view: 150, hp: 280 }); }
         for (let i = 0; i < 26; i++) enemy(rand(-60, 60), rand(SQ - 110, SQ - 20), { tag: 'sq', view: 120, crouch: Math.random() < 0.5, kind: Math.random() < 0.3 ? 'heavy' : 'rifle', hold: Math.random() < 0.4 });
@@ -12441,7 +12470,7 @@ defMission({
         S.obj('적 전차 격파 (0/2)');
         const mk3 = S.every(0.25, () => { const t = last.find((v) => v.alive); G.objPos = t ? t.pos.clone().add(v3(0, 3, 0)) : null; S.obj(`적 전차 격파 (${last.filter((v) => !v.alive).length}/2)`); });
         await S.until(() => last.every((v) => !v.alive)); S.stop(mk3);
-        pr.stop(); G.strikeMode = null;
+        pr.stop(); G.strikeMode = null; air.stop();
         await S.say('박도현 중위', '쓸어버려! 광장 확보한다!', { dur: 2 });
         const t0 = G.time;
         const sweep = S.every(1.2, () => { const en = aliveEnemies('sq'); if (!en.length) return true; const a = pick(en); if (a.pos.distanceTo(P.pos) > 25 || G.time - t0 > 20) { const from = a.pos.clone().add(v3(rand(-20, 20), 3, rand(15, 30))); for (let q = 0; q < 4; q++) tracer(from, a.chest(v3()), [1, 0.6, 0.3], 400); SFX.shot('mg', a.pos); a.hurt(999, null); } });
