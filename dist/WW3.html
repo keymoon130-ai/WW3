@@ -8475,6 +8475,35 @@ async function runBrief(S, o) {
   });
   el.classList.remove('on'); await S.wait(0.5); el.hidden = true; alive = false;
 }
+/* a full-screen video in place of a briefing: black, then the picture cuts in; the last stretch fades out, then black holds before the mission.
+   The hosted build plays media/<file>; the artifact carries the file inline (window.__MEDIA). Skippable like any cutscene. */
+async function runVideo(S, file, o = {}) {
+  const black0 = o.black ?? 1.4, fadeT = o.fade ?? 2, hold = o.hold ?? 4;
+  const el = document.createElement('div'); el.style.cssText = 'position:fixed;inset:0;z-index:70;background:#000';
+  const v = document.createElement('video'); v.src = (window.__MEDIA && window.__MEDIA[file]) || 'media/' + file; v.preload = 'auto'; v.playsInline = true;
+  v.style.cssText = 'width:100%;height:100%;object-fit:contain;opacity:0'; el.appendChild(v); document.body.appendChild(el);
+  const vol = () => (typeof SET !== 'undefined' && SET.vol != null ? Math.min(1, SET.vol) : 1);
+  if (AU.master) AU.master.gain.setTargetAtTime(0, AU.ctx.currentTime, 0.2); // the battle outside goes quiet under the broadcast
+  let done = false, raf = 0;
+  const tick = () => { if (done) return; raf = requestAnimationFrame(tick); if (G.ffwd) { v.pause(); return; }
+    const left = (v.duration || 1e9) - v.currentTime, k = clamp(left / fadeT, 0, 1);
+    if (v.currentTime > 0) { v.style.opacity = k; v.volume = vol() * k; } };
+  await S.cut(async () => {
+    await S.wait(black0);
+    if (!G.ffwd) {
+      v.volume = vol(); v.style.opacity = 1; // cut straight in, no fade
+      const ended = new Promise((res) => { v.onended = res; v.onerror = res; setTimeout(res, ((v.duration || 120) + 5) * 1000); });
+      try { await v.play(); } catch (e) { v.muted = true; try { await v.play(); } catch (e2) {} }
+      raf = requestAnimationFrame(tick);
+      let fin = false; ended.then(() => (fin = true));
+      await S.until(() => fin || G.ffwd);
+      v.style.opacity = 0;
+    }
+    await S.wait(hold);
+  });
+  done = true; cancelAnimationFrame(raf); v.pause(); v.removeAttribute('src'); v.load(); el.remove();
+  if (AU.master && !G.ffwd) AU.master.gain.setTargetAtTime(SET.vol, AU.ctx.currentTime, 0.4);
+}
 const SKIP_HOLD = 2;
 function skipTick(raw) {
   const el = $('skipUI'); if (!el) return;
@@ -9978,13 +10007,7 @@ defMission({
       setup(S) { const p = M7.L(1, 5); S.player(p.x, p.z, M7.yawS + Math.PI); },
       async run(S) {
         const { L, Ls } = M7;
-        S.fade(1, 0); await runBrief(S, { kicker: '한 달 뒤 · 2032년 2월', title: '서울 북방', map: { front: 'seoulN', occ: 0, arrows: ADV().map((a) => Object.assign(a, { k: 0 })), cities: ['pyongyang', 'chuncheon', 'seoul', 'pyeong', 'busan'], hot: 'seoul', occLabel: '적 점령 지역', frontLabel: '2월 · 전선' }, lines: [
-          { t: '완충지대였던 북한이 사라지고 한미동맹이 압록강까지 올라오자, 중국과 러시아가 손을 잡았다.' },
-          { t: '1월 1일, 「연합 안정화 작전」을 내건 중·러 연합군이 두만강과 압록강을 넘어 쉬지 않고 내려왔다.', grow: [0, 1], growT: 2.2 },
-          { t: '1월 27일 평양 함락. 중국군 주력은 옛 휴전선을 넘었다.' },
-          { t: '2월, 러시아군이 동부 축선으로 춘천에 들어왔다.' },
-          { t: '적 선두는 서울 북쪽 끝까지 왔다. 정부는 서울 사수를 선언했다.', grow: [], fade: true, growT: 1.6, map: { view: { lo: 127.3, la: 37.55, z: 3.2 }, frontAt: [126.05, 37.7], occAt: [126.75, 38.15] } },
-          { t: '3분대는 시민 철수 호송에 투입된다.' }] }); S.fade(0, 1.5);
+        S.fade(1, 0); await runVideo(S, 'm7-intro.mp4', { black: 1.4, fade: 2.2, hold: 4 }); S.fade(0, 1.5);
         await S.say('윤하린 중사', '한 달 동안 밀리고 밀려서… 여기까지 왔습니다.');
         await S.radio('수도방위사령부', '3분대, 광화문역에 대피한 시민들이 있다. 버스에 다 태울 때까지 세종대로를 막아라.', { dur: 3.6 });
         S.hint('K21 뒤쪽 열린 램프에서 <kbd>F</kbd> · 대공미사일과 RPG를 꺼낼 수 있어요', 6);

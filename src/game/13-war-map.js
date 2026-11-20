@@ -49,6 +49,35 @@ async function runBrief(S, o) {
   });
   el.classList.remove('on'); await S.wait(0.5); el.hidden = true; alive = false;
 }
+/* a full-screen video in place of a briefing: black, then the picture cuts in; the last stretch fades out, then black holds before the mission.
+   The hosted build plays media/<file>; the artifact carries the file inline (window.__MEDIA). Skippable like any cutscene. */
+async function runVideo(S, file, o = {}) {
+  const black0 = o.black ?? 1.4, fadeT = o.fade ?? 2, hold = o.hold ?? 4;
+  const el = document.createElement('div'); el.style.cssText = 'position:fixed;inset:0;z-index:70;background:#000';
+  const v = document.createElement('video'); v.src = (window.__MEDIA && window.__MEDIA[file]) || 'media/' + file; v.preload = 'auto'; v.playsInline = true;
+  v.style.cssText = 'width:100%;height:100%;object-fit:contain;opacity:0'; el.appendChild(v); document.body.appendChild(el);
+  const vol = () => (typeof SET !== 'undefined' && SET.vol != null ? Math.min(1, SET.vol) : 1);
+  if (AU.master) AU.master.gain.setTargetAtTime(0, AU.ctx.currentTime, 0.2); // the battle outside goes quiet under the broadcast
+  let done = false, raf = 0;
+  const tick = () => { if (done) return; raf = requestAnimationFrame(tick); if (G.ffwd) { v.pause(); return; }
+    const left = (v.duration || 1e9) - v.currentTime, k = clamp(left / fadeT, 0, 1);
+    if (v.currentTime > 0) { v.style.opacity = k; v.volume = vol() * k; } };
+  await S.cut(async () => {
+    await S.wait(black0);
+    if (!G.ffwd) {
+      v.volume = vol(); v.style.opacity = 1; // cut straight in, no fade
+      const ended = new Promise((res) => { v.onended = res; v.onerror = res; setTimeout(res, ((v.duration || 120) + 5) * 1000); });
+      try { await v.play(); } catch (e) { v.muted = true; try { await v.play(); } catch (e2) {} }
+      raf = requestAnimationFrame(tick);
+      let fin = false; ended.then(() => (fin = true));
+      await S.until(() => fin || G.ffwd);
+      v.style.opacity = 0;
+    }
+    await S.wait(hold);
+  });
+  done = true; cancelAnimationFrame(raf); v.pause(); v.removeAttribute('src'); v.load(); el.remove();
+  if (AU.master && !G.ffwd) AU.master.gain.setTargetAtTime(SET.vol, AU.ctx.currentTime, 0.4);
+}
 const SKIP_HOLD = 2;
 function skipTick(raw) {
   const el = $('skipUI'); if (!el) return;

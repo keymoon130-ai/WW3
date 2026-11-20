@@ -49,8 +49,14 @@ i = shell.index('<canvas id="game">')
 head, body = shell[:i], shell[i:]
 script = '<script type="module">\n' + js + '\n</script>\n'
 os.makedirs(os.path.join(d, 'dist'), exist_ok=True)
+# media (videos): the hosted build loads them from dist/media/, the artifact carries them inline (it cannot fetch files)
+import shutil, base64
+mdir = os.path.join(src, 'media'); media = sorted(os.listdir(mdir)) if os.path.isdir(mdir) else []
+os.makedirs(os.path.join(d, 'dist', 'media'), exist_ok=True)
+for f in media: shutil.copyfile(os.path.join(mdir, f), os.path.join(d, 'dist', 'media', f))
+inline = '<script>window.__MEDIA = {' + ','.join('"%s":"data:video/mp4;base64,%s"' % (f, base64.b64encode(open(os.path.join(mdir, f), 'rb').read()).decode()) for f in media) + '};</script>\n'
 # artifact version (skeleton supplied by host)
-open(os.path.join(d, 'dist', 'artifact.html'), 'w', encoding='utf-8').write(shell + '\n' + script)
+open(os.path.join(d, 'dist', 'artifact.html'), 'w', encoding='utf-8').write(shell + '\n' + inline + script)
 # standalone single file
 full = ('<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'

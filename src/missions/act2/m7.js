@@ -343,13 +343,7 @@ defMission({
       setup(S) { const p = M7.L(1, 5); S.player(p.x, p.z, M7.yawS + Math.PI); },
       async run(S) {
         const { L, Ls } = M7;
-        S.fade(1, 0); await runBrief(S, { kicker: '한 달 뒤 · 2032년 2월', title: '서울 북방', map: { front: 'seoulN', occ: 0, arrows: ADV().map((a) => Object.assign(a, { k: 0 })), cities: ['pyongyang', 'chuncheon', 'seoul', 'pyeong', 'busan'], hot: 'seoul', occLabel: '적 점령 지역', frontLabel: '2월 · 전선' }, lines: [
-          { t: '완충지대였던 북한이 사라지고 한미동맹이 압록강까지 올라오자, 중국과 러시아가 손을 잡았다.' },
-          { t: '1월 1일, 「연합 안정화 작전」을 내건 중·러 연합군이 두만강과 압록강을 넘어 쉬지 않고 내려왔다.', grow: [0, 1], growT: 2.2 },
-          { t: '1월 27일 평양 함락. 중국군 주력은 옛 휴전선을 넘었다.' },
-          { t: '2월, 러시아군이 동부 축선으로 춘천에 들어왔다.' },
-          { t: '적 선두는 서울 북쪽 끝까지 왔다. 정부는 서울 사수를 선언했다.', grow: [], fade: true, growT: 1.6, map: { view: { lo: 127.3, la: 37.55, z: 3.2 }, frontAt: [126.05, 37.7], occAt: [126.75, 38.15] } },
-          { t: '3분대는 시민 철수 호송에 투입된다.' }] }); S.fade(0, 1.5);
+        S.fade(1, 0); await runVideo(S, 'm7-intro.mp4', { black: 1.4, fade: 2.2, hold: 4 }); S.fade(0, 1.5);
         await S.say('윤하린 중사', '한 달 동안 밀리고 밀려서… 여기까지 왔습니다.');
         await S.radio('수도방위사령부', '3분대, 광화문역에 대피한 시민들이 있다. 버스에 다 태울 때까지 세종대로를 막아라.', { dur: 3.6 });
         S.hint('K21 뒤쪽 열린 램프에서 <kbd>F</kbd> · 대공미사일과 RPG를 꺼낼 수 있어요', 6);
