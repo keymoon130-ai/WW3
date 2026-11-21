@@ -3,12 +3,17 @@
   "version": "1.0.0",
   "description": "WW3 — three.js 단일 HTML 현대전 FPS",
   "scripts": {
-    "build": "python3 build.py"
+    "build": "python3 build.py",
+    "autoplay": "node tools/autoplay.cjs",
+    "shots": "node tools/shots.cjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
   }
 }
