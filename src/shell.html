@@ -153,6 +153,9 @@ body.cine #hud>*:not(#subs):not(#flash):not(#ringfx):not(#dmgvig){opacity:0!impo
 #gsight{position:fixed;left:50%;top:50%;width:120px;height:120px;transform:translate(-50%,-50%);pointer-events:none;opacity:0;transition:opacity .2s;filter:drop-shadow(0 0 2px rgba(0,0,0,.8))}
 #gsight circle,#gsight path{stroke:#b8f070}#gsight circle[r="2.2"]{fill:#b8f070;stroke:none}
 #gsight.on{opacity:.9}
+#mdot{position:fixed;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);pointer-events:none;opacity:0;transition:opacity .15s;border:1.5px solid rgba(255,120,60,.55);border-radius:50%;box-shadow:0 0 2px rgba(0,0,0,.7)}
+#mdot::after{content:'';position:absolute;left:50%;top:50%;width:5px;height:5px;transform:translate(-50%,-50%);border-radius:50%;background:#ff5a2a;box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 6px rgba(255,90,40,.8)}
+#mdot.on{opacity:1}
 #hgWarn{position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;box-shadow:inset 0 0 140px 30px rgba(230,30,20,.55);transition:opacity .15s}
 #hgWarn.on{opacity:1;animation:hgw .34s steps(2) infinite}
 #hgWarn b{position:absolute;left:50%;top:18%;transform:translateX(-50%);font:700 15px/1 sans-serif;letter-spacing:.3em;color:#ff5a48;padding:7px 14px;border:1.5px solid #ff5a48;background:rgba(40,0,0,.35);white-space:nowrap}
@@ -287,6 +290,7 @@ input[type=range]{accent-color:var(--amber);width:100%}
 <div id="hud" hidden>
   <div id="vig"></div><div id="dmgvig"></div><div id="ringfx"></div><div id="binoc"></div><div id="lockBox" hidden></div><div id="shouts"></div><div id="binocFx"><span class="lab">좌클릭 · 함포 사격 요청</span></div><div id="flash"></div><div id="underwater"></div>
   <div id="xh"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><b class="dot"></b></div>
+  <div id="mdot" aria-hidden="true"></div>
   <svg id="gsight" viewBox="-60 -60 120 120" aria-hidden="true"><circle r="34" fill="none" stroke-width="1.6"/><circle r="2.2"/><path d="M0 -50V-40M0 40V50M-50 0H-40M40 0H50M-12 0H-6M6 0H12M0 -12V-6M0 6V12" fill="none" stroke-width="1.6"/><path d="M-24 -24l4 4M24 -24l-4 4M-24 24l4 -4M24 24l-4 -4" fill="none" stroke-width="1.2"/></svg>
   <div id="hitm"></div><div id="dmgdirs"></div><div id="nadeIcons"></div><div id="susIcons"></div><div id="suppress"></div>
   <div id="obj" hidden><div class="lab">목표</div><div id="objText"></div></div>

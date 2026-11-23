@@ -192,7 +192,7 @@ class Vehicle {
         // every ground vehicle keeps its distance: it brakes for whatever is in front of it in its path and never drives through it
         if (!this.air && this.size) { const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw); let lim = 1e9, blk = null, bf = 0, bl = 0;
           if (this.avoid && this.pi > this.avoidIdx) this.avoid = null;
-          for (const v of G.vehicles) { if (v === this || v === this.avoid || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz; if (f <= 0) continue;
+          for (const v of G.vehicles) { if (v === this || v === this.avoid || (this.o.pass && this.o.pass.includes(v)) || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const rx = v.pos.x - this.pos.x, rz = v.pos.z - this.pos.z, f = rx * fx + rz * fz; if (f <= 0) continue;
             const vx = -Math.sin(v.yaw), vz = -Math.cos(v.yaw), cf = Math.abs(fx * vx + fz * vz), cr = Math.abs(fz * vx - fx * vz), eF = cf * v.size[2] + cr * v.size[0], eL = cr * v.size[2] + cf * v.size[0];
             const lat = rx * fz - rz * fx; if (Math.abs(lat) > this.size[0] + eL + 0.5) continue; const gap = f - this.size[2] - eF, vs = (v.cs || 0) * cf;
             let l = gap < 2.5 ? 0 : gap < 16 ? Math.max(0, vs + (gap - 7) * 0.45) : 1e9; if (!v.alive && this.type === 'tank') l = Math.max(l, v.type === 'tank' ? 1.5 : 2.2); if (l < lim) { lim = l; blk = v; bf = f; bl = lat; blk.eF = eF; blk.eL = eL; } }

@@ -6,6 +6,17 @@ function limb(parent, a, b, t, m) {
   me.position.copy(a).add(b).multiplyScalar(0.5); me.lookAt(b.clone().add(parent.position)); me.castShadow = false;
   me.quaternion.setFromUnitVectors(v3(0, 0, 1), d.normalize()); parent.add(me); return me;
 }
+/* the muzzle flash on the gun in our hands: a star-shaped bloom facing us, and flame tongues out to the sides along the bore */
+let VMFLASH_M = null;
+function vmFlashMesh() {
+  if (!VMFLASH_M) { const t = canvasTex(256, 256, (c, w, h) => { c.clearRect(0, 0, w, h); const cx = w / 2, cy = h / 2;
+      for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + rand(-0.2, 0.2), L = w * rand(0.32, 0.48); c.save(); c.translate(cx, cy); c.rotate(a); const gr = c.createLinearGradient(0, 0, L, 0); gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.4, 'rgba(255,190,80,.9)'); gr.addColorStop(1, 'rgba(255,90,20,0)'); c.fillStyle = gr; c.beginPath(); c.moveTo(0, -w * 0.05); c.lineTo(L, 0); c.lineTo(0, w * 0.05); c.fill(); c.restore(); }
+      const rg = c.createRadialGradient(cx, cy, 0, cx, cy, w * 0.22); rg.addColorStop(0, 'rgba(255,255,240,1)'); rg.addColorStop(0.5, 'rgba(255,200,100,.8)'); rg.addColorStop(1, 'rgba(255,120,30,0)'); c.fillStyle = rg; c.fillRect(0, 0, w, h); });
+    VMFLASH_M = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false, fog: false }); }
+  const grp = new THREE.Group(), face = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), VMFLASH_M); grp.add(face);
+  for (const ry of [0, Math.PI / 2]) { const s = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.5), VMFLASH_M); s.rotation.set(Math.PI / 2, 0, ry); s.position.z = -0.18; grp.add(s); } // flame tongues along the bore
+  grp.visible = false; grp.renderOrder = 10; return grp;
+}
 function buildViewmodel() {
   if (VM.g) VM.root.remove(VM.g);
   const id = curId(); VM.id = id; const w = WD[id]; if (!w) return;
@@ -14,7 +25,7 @@ function buildViewmodel() {
   const style = G.allyStyle === 'usmc' ? 'usmc' : 'rok';
   const sleeve = mat('vmsleeve' + style, { map: style }), glove = mat('vmglove', { color: style === 'usmc' ? 0x6b5c40 : 0x2a2b26, rough: 0.9 });
   const add = (w_, h, d, m, x, y, z, rx = 0) => { const me = new THREE.Mesh(boxGeo(w_, h, d), m); me.position.set(x, y, z); me.rotation.x = rx; g.add(me); return me; };
-  VM.muzzle = new THREE.Object3D(); g.add(VM.muzzle); VM.mag = null; VM.extra = null; VM.sx = 0; VM.bolt = null; VM.larm = null; VM.lhand = null; VM.dot = null;
+  VM.muzzle = new THREE.Object3D(); g.add(VM.muzzle); VM.flash = vmFlashMesh(); VM.muzzle.add(VM.flash); VM.flashT = 0; VM.mag = null; VM.extra = null; VM.sx = 0; VM.bolt = null; VM.larm = null; VM.lhand = null; VM.dot = null;
   let rh = v3(0, -0.07, 0.07), lh = v3(0, -0.04, -0.24);
   if (w.vm === 'rifle') {
     add(0.07, 0.1, 0.44, gm, 0, 0, 0); add(0.065, 0.075, 0.26, gm2, 0, -0.005, -0.33);

@@ -75,6 +75,7 @@ function updateHUD(dt) {
   hud.xh.style.opacity = (xk <= 0.01 || P.ads > 0.5 || P.sprintK > 0.5 || G.cut || !P.alive || w.vm === 'binoc') ? 0 : 1;
   // mounted guns with no weapon model in view (the helicopter's K-M19, rocket pods) get a gunsight reticle instead
   { const gs = $('gsight'); if (gs) gs.classList.toggle('on', !!(w.mounted && w.vm === 'none' && !G.cut && P.alive)); }
+  { const md = $('mdot'); if (md) md.classList.toggle('on', !!(w.mounted && w.vm !== 'none' && !G.cut && P.alive)); } // hatch and pintle guns: a red dot where the rounds go
   updateLockPrompt();
   hud.xh.classList.toggle('ally', !!G.aimAlly);
   // damage vignette

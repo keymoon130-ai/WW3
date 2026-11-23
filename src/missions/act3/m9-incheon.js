@@ -330,9 +330,12 @@ defMission({
         S.give('acvmg'); if (mine.m.turret) mine.m.turret.position.x = 1.05; mine.armed = false;
         P.ride = { obj: mine.m.root, off: [-0.25, 1.32, 1.0] }; P.yaw = mine.yaw; P.pitch = -0.05; P.noFire = false;
         G.hitMul = 0.55; const regen = S.every(0.5, () => { if (P.alive && P.hp < 100 && G.time - P.lastHit > 2.5) P.hp = Math.min(100, P.hp + 5); });
-        // the rest of our lane pulls over to the lane edges so our ACV can run straight up the middle; the other lanes push on
-        cols[2].forEach((v) => { if (!v || !v.alive || v === mine) return; const side = v.type === 'tank' ? 4.8 : -5.4; /* to the lane edge, short of the container stacks at ±7.8 */ v.path = [v3(24 + side, 0, v.pos.z - 14), v3(24 + side, 0, v.pos.z - 22)]; v.pi = 0; v.speed = 3; v.stopped = false; }); // a second point straight on, so the pull-over ends square on the lane edge, not short of it
-        mine.stopped = true; S.later(3.5, () => { mine.path = [v3(23.4, 0, -520), v3(23.4, 0, -560), v3(24, 0, -586)]; mine.pi = 0; mine.speed = 7; mine.stopped = false; mine.o.yieldPeople = false; });
+        /* our lane: whoever is in front of our ACV runs on ahead at the same speed and opens the way; whoever is behind holds where it is.
+           Nobody swerves to the lane edges any more (the jersey barriers and the sandbag nests at the cross roads stand there) */
+        const front = cols[2].filter((v) => v && v.alive && v !== mine && v.pos.z < mine.pos.z).sort((a, b) => a.pos.z - b.pos.z);
+        front.forEach((v, k) => { v.path = [v3(24, 0, -592 + k * 12)]; /* short of the control tower (its face at z -600.5) */ v.pi = 0; v.speed = 7; v.stopped = false; v.o.noDetour = true; v.o.yieldPeople = false; });
+        cols[2].forEach((v) => { if (v && v.alive && v !== mine && !front.includes(v)) v.stopped = true; });
+        mine.stopped = true; S.later(3.5, () => { const endZ = front.length ? -592 + front.length * 12 : -586; mine.path = [v3(24, 0, -520), v3(24, 0, Math.min(-560, endZ + 10)), v3(24, 0, endZ)]; /* behind whoever led the way in */ mine.pi = 0; mine.speed = 7; mine.stopped = false; mine.o.yieldPeople = false; });
         cols.forEach((col, i) => { if (i === 2) return; col.forEach((v, k) => { if (!v || !v.alive) return; const gx = G.breachX[i]; v.path = [v3(gx, 0, -560 + k * 13), v3(gx, 0, -580 + k * 13)]; v.pi = 0; v.speed = 6; v.stopped = false; }); });
         G.armorFree = true;
         S.obj('ACV 원격무장 기관총으로 항만 돌파');

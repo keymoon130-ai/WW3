@@ -6,7 +6,7 @@ let menuStack = [];
 function openScreen(id) { menuStack.push(SCREENS.find((s) => !$(s).hidden) || 'menu'); showScreen(id); SFX.ui(); }
 function menuBack() { const prev = menuStack.pop() || 'menu'; showScreen(prev); }
 function toMenu() {
-  abortScripts(); G.token++; G.mode = 'menu'; G.paused = false; $('hud').hidden = true; document.body.classList.remove('cine'); G.nvg = false; canvas.classList.remove('nvg'); $('nvg').hidden = true;
+  abortScripts(); G.token++; G.mode = 'menu'; stopAllSounds(); G.paused = false; $('hud').hidden = true; document.body.classList.remove('cine'); G.nvg = false; canvas.classList.remove('nvg'); $('nvg').hidden = true;
   if (document.pointerLockElement) document.exitPointerLock();
   buildMenuScene(); menuStack = []; showScreen('menu'); $('fade').style.opacity = 0;
   if (AU.ctx) playMusic('title');

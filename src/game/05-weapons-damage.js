@@ -86,6 +86,7 @@ function updateWeapon(dt) {
   const overlay = w.overlay && ads > 0.85;
   VM.root.visible = !G.cut && P.alive && !overlay && !P.hideVM;
   vmFlash.intensity = damp(vmFlash.intensity, 0, 30, dt);
+  if (VM.flash) { VM.flashT -= dt; if (VM.flashT <= 0) VM.flash.visible = false; }
 }
 const _d = v3(), _o = v3(), _lh = v3(), _lh2 = v3(), _lh3 = v3(), _lh4 = v3();
 function fireWeapon(w, st) {
@@ -124,7 +125,8 @@ function fireWeapon(w, st) {
   G.hmgShot = !!w.hmg; const hit = hitscan(camera.position, dir, 400, w.dmg, w.head ?? 3, PT); G.hmgShot = false;
   tracer(worldMz, hit.point, [1, 0.8, 0.45], 500);
   FX.muzzle(worldMz, _d, w.sup ? 0.3 : 1);
-  if (!w.sup && SET.sparks !== false) { flashLight(worldMz, 0xffaa50, 6, 9, 0.05); vmFlash.intensity = 3; }
+  if (!w.sup && SET.sparks !== false) { flashLight(worldMz, 0xffaa50, w.mounted ? 12 : 6, w.mounted ? 14 : 9, 0.05); vmFlash.intensity = w.mounted ? 6 : 3; }
+  if (w.mounted && VM.flash && w.vm !== 'none') { const big = w.mounted ? 1.9 : 0.9; VM.flashT = w.mounted ? 0.055 : 0.04; VM.flash.visible = true; VM.flash.rotation.z = rand(0, TAU); VM.flash.scale.set(big * rand(0.8, 1.2), big * rand(0.8, 1.2), big * rand(0.8, 1.3)); } // fire at the muzzle of the gun we hold
   SFX.shot(w.snd); G.pShotT = G.time; if (w.bolt) { P.boltT = w.bolt; P.fireCd = Math.max(P.fireCd, w.bolt); if (SET.adsToggle) P.adsOn = P.adsOn; }
   // recoil
   const recK = (1 - P.ads * 0.35) * (1 - P.crouch * 0.2);

@@ -11,6 +11,7 @@ const G = {
   cut: null, shake: 0, objPos: null,
 };
 function newWorld() {
+  if (typeof stopAllSounds === 'function') stopAllSounds(); // the last run's engines and rotors do not carry over
   if (G.world) {
     G.world.traverse((o) => { if (o.geometry && !o.geometry.userData.keep) o.geometry.dispose(); });
     scene.remove(G.world);
