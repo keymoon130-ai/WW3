@@ -6,7 +6,7 @@ order = [l.strip() for l in open(os.path.join(src, 'manifest.txt'), encoding='ut
 missing = [f for f in order if not os.path.exists(os.path.join(src, f))]
 if missing: raise SystemExit('missing source files: ' + ', '.join(missing))
 listed = set(order)
-stray = [os.path.relpath(os.path.join(r, f), src) for r, _, fs in os.walk(src) for f in fs if f.endswith('.js') and os.path.relpath(os.path.join(r, f), src) not in listed]
+stray = [os.path.relpath(os.path.join(r, f), src).replace(os.sep, '/') for r, _, fs in os.walk(src) for f in fs if f.endswith('.js') and os.path.relpath(os.path.join(r, f), src).replace(os.sep, '/') not in listed]
 if stray: print('warning: .js files not in manifest.txt (not built):', ', '.join(sorted(stray)))
 js = '\n'.join(open(os.path.join(src, f), encoding='utf-8').read() for f in order)
 # three.js addons (post-processing, rounded boxes) inlined: each file becomes an IIFE whose exports land in module scope

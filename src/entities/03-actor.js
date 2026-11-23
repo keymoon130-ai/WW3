@@ -247,17 +247,24 @@ class Actor {
         if (!probeFree(this.pos, moveDir.x, moveDir.z, 2.2, this.pos.y)) { const base = Math.atan2(moveDir.x, moveDir.z); const side = this.steerSide || (Math.random() < 0.5 ? 1 : -1);
           for (const a of [0.5, -0.5, 1.0, -1.0, 1.5, -1.5, 2.1, -2.1]) { const ang = base + a * side; const sx = Math.sin(ang), sz = Math.cos(ang); if (probeFree(this.pos, sx, sz, 2.2, this.pos.y)) { this.steer = v3(sx, 0, sz); this.steerSide = Math.sign(a * side) || 1; break; } } } }
       if (this.steer) moveDir = _md.copy(this.steer);
-      moveCircle(this.pos, moveDir.x * sp * dt, moveDir.z * sp * dt, 0.32, this.pos.y, 1.7, 0.12);
+      /* momentum: the body carries its speed and swings round a turn in an arc, slowing for a sharp one, instead of snapping to a new heading */
+      { const vx = this.mvx || 0, vz = this.mvz || 0, cv = Math.hypot(vx, vz); let tsp = sp;
+        if (cv > 0.6) { const cosA = (vx * moveDir.x + vz * moveDir.z) / cv; tsp = sp * clamp(0.45 + 0.55 * cosA, 0.3, 1); }
+        const k = Math.min(1, dt * (tsp > cv ? 5.5 : 8)); this.mvx = vx + (moveDir.x * tsp - vx) * k; this.mvz = vz + (moveDir.z * tsp - vz) * k; }
+      moveCircle(this.pos, this.mvx * dt, this.mvz * dt, 0.32, this.pos.y, 1.7, 0.12);
       moving = true;
       const moved = this.pos.distanceTo(this.lastPos);
       this.stuck += dt; if (this.stuck > 1) { if (moved < 0.35) { if (this.leading && this.routeGoal) { const d = _w.subVectors(this.routeGoal, this.pos).setY(0).normalize(); this.detSide = -(this.detSide || 1); this.goal = this.pos.clone().add(v3(-d.z * this.detSide * 3 + d.x * 1.2, 0, d.x * this.detSide * 3 + d.z * 1.2)); } else { const a = rand(0, TAU); this.goal = this.pos.clone().add(v3(Math.cos(a) * 4, 0, Math.sin(a) * 4)); } if (this.goTo && this.team === 'civ') { if (this.pos.distanceTo(this.goTo) < 6.5) this.forceArrive = true; } else if (this.goTo && Math.random() < 0.3) this.goTo = null; } this.stuck = 0; this.lastPos.copy(this.pos); }
-      if (faceYaw === null) faceYaw = Math.atan2(-moveDir.x, -moveDir.z);
+      if (faceYaw === null) faceYaw = Math.hypot(this.mvx, this.mvz) > 0.4 ? Math.atan2(-this.mvx, -this.mvz) : Math.atan2(-moveDir.x, -moveDir.z);
       this.wantCrouchNow = false;
     }
-    if (!moveDir) moveCircle(this.pos, 0, 0, 0.32, this.pos.y, 1.7, 0.06);
+    if (!moveDir) { /* coming to a stop: a step or two to bleed off the speed, not a dead halt */
+      const cv = Math.hypot(this.mvx || 0, this.mvz || 0);
+      if (cv > 0.15) { const k = Math.max(0, 1 - dt * 7); this.mvx *= k; this.mvz *= k; moveCircle(this.pos, this.mvx * dt, this.mvz * dt, 0.32, this.pos.y, 1.7, 0.06); moving = cv > 0.9; if (moving) speed = cv; }
+      else { this.mvx = this.mvz = 0; moveCircle(this.pos, 0, 0, 0.32, this.pos.y, 1.7, 0.06); } }
     { const fy = floorAt(this.pos.x, this.pos.z, this.pos.y + 0.5); const dy = fy - this.pos.y; this.pos.y = Math.abs(dy) > 3 ? fy : damp(this.pos.y, fy, dy > 0 ? 16 : 10, dt); }
     if (faceYaw === null && !moveDir && this.faceYaw != null && this.state !== 'combat') faceYaw = this.faceYaw;
-    if (faceYaw !== null) this.yaw += angDiff(this.yaw, faceYaw) * Math.min(1, dt * 8);
+    if (faceYaw !== null) { const dd = angDiff(this.yaw, faceYaw) * Math.min(1, dt * 8), cap = (moving ? 4.2 : 6.5) * dt; this.yaw += clamp(dd, -cap, cap); } /* a turn takes a moment, never a snap */
     const cr = (!moving && (this.wantCrouch || this.downT > 0)) ? 1 : 0;
     this.crouch = damp(this.crouch, cr, 8, dt);
     // animate

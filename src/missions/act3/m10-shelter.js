@@ -87,16 +87,30 @@ function m10Shelter() {
 function m7ShPose(o, dt) {
   const m = o.m; o.ph += dt; const ph = o.ph;
   if (o.cheer) { // getting up: from lying, sitting or curled, onto their feet, turning toward the door
-    if (o.rx0 === undefined) { o.rx0 = m.root.rotation.x; o.y0 = m.root.position.y; o.yaw0 = m.root.rotation.y; }
-    const k = Math.min(1, o.cheer += dt * (o.kind === 'lie' ? 1.1 : 1.8)), e = k * k * (3 - 2 * k); poseSoldier(m, { moving: false, speed: 0, crouch: 1 - e, aim: 0, walk: 0, pitch: 0 }, 1);
-    m.root.rotation.x = o.rx0 * (1 - e); m.root.position.y = o.y0 + (o.p.y - o.y0) * e; m.root.rotation.y = o.yaw0 + angDiff(o.yaw0, o.face ?? o.yaw0) * e; return; }
-  if (o.kind === 'lie') { poseSoldier(m, { moving: false, speed: 0, crouch: 0, aim: 0, walk: 0, pitch: 0 }, 1); m.root.rotation.x = -Math.PI / 2; m.root.position.y = o.p.y + 0.22 + Math.sin(ph * 1.4) * 0.008; }
-  else if (o.kind === 'sit') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: -0.2 }, 1); m.root.rotation.x = 0.12; m.root.position.y = o.p.y - 0.35; }
-  else if (o.kind === 'curl') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: 0.7 }, 1); m.root.rotation.x = 0.35; m.root.position.y = o.p.y - 0.42; if (m.armR) m.armR.rotation.set(-0.9, 0, 0.5); if (m.armL) m.armL.rotation.set(-0.9, 0, -0.5); }
+    if (o.rx0 === undefined) { o.rx0 = m.root.rotation.x; o.rz0 = m.root.rotation.z; o.y0 = m.root.position.y; o.yaw0 = m.root.rotation.y; }
+    const k = Math.min(1, o.cheer += dt * (o.kind === 'lie' ? 0.8 : 1.4)), e = k * k * (3 - 2 * k); poseSoldier(m, { moving: false, speed: 0, crouch: 1 - e, aim: 0, walk: 0, pitch: 0 }, 1);
+    m.head.rotation.x *= 1 - e; m.head.rotation.z *= 1 - e; // the head comes up with the body
+    if (o.kind === 'lie' || o.kind === 'curl') { m.hips.position.y = lerp(o.kind === 'lie' ? 0.95 : 0.25, m.hips.position.y, smooth(clamp(k * 1.6, 0, 1))); } // the body comes up off the floor first, then straightens
+    m.root.rotation.x = o.rx0 * (1 - e); m.root.rotation.z = (o.rz0 || 0) * (1 - smooth(clamp(k * 1.5, 0, 1))); m.root.position.y = o.y0 + (o.p.y - o.y0) * e; m.root.rotation.y = o.yaw0 + angDiff(o.yaw0, o.face ?? o.yaw0) * e; return; }
+  const br = Math.sin(ph * 1.25); // slow breathing, so nobody lies there like a board
+  if (o.kind === 'lie') { // asleep on one side, knees drawn up, the lower arm pillowing the head, the upper one resting over the body
+    poseSoldier(m, { moving: false, speed: 0, crouch: 0, aim: 0, walk: 0, pitch: 0 }, 1);
+    m.legL.rotation.set(0.95, 0, 0.04); m.legR.rotation.set(0.75, 0, -0.04); m.kneeL.rotation.x = -1.25; m.kneeR.rotation.x = -1.05;
+    m.torso.rotation.set(-0.12 + br * 0.012, 0, 0); m.head.rotation.set(-0.2, 0, 0.22);
+    m.armL.rotation.set(2.5, 0, 0.15); m.elL.rotation.set(1.7, 0, 0); m.armR.rotation.set(0.55, 0, -0.35); m.elR.rotation.set(0.7, 0, 0);
+    m.root.rotation.x = 0; m.root.rotation.z = Math.PI / 2; m.root.position.y = o.p.y + 0.21 + br * 0.004; }
+  else if (o.kind === 'sit') { poseSoldier(m, { moving: false, speed: 0, crouch: 1, aim: 0, walk: 0, pitch: -0.2 }, 1); m.root.rotation.x = 0.12; m.root.position.y = o.p.y - 0.35; m.torso.rotation.x += br * 0.015; }
+  else if (o.kind === 'curl') { // sitting on the floor, knees pulled up, arms wrapped round the shins, face down on the knees, rocking a little
+    poseSoldier(m, { moving: false, speed: 0, crouch: 0, aim: 0, walk: 0, pitch: 0 }, 1);
+    m.hips.position.y = 0.25; m.legL.rotation.set(1.95, 0, 0.1); m.legR.rotation.set(1.95, 0, -0.1); m.kneeL.rotation.x = -2.15; m.kneeR.rotation.x = -2.15;
+    const rk = Math.sin(ph * 0.9) * 0.03; m.torso.rotation.set(-0.55 + rk + br * 0.01, 0, 0); m.head.rotation.set(-0.45, 0, 0);
+    m.armR.rotation.set(1.05, 0, -0.32); m.armL.rotation.set(1.05, 0, 0.32); m.elR.rotation.set(0.95, 0, 0); m.elL.rotation.set(0.95, 0, 0);
+    m.root.rotation.x = 0; m.root.rotation.z = 0; m.root.position.y = o.p.y; }
   else if (o.kind === 'kneel') { poseSoldier(m, { moving: false, speed: 0, crouch: 0.85, aim: 0, walk: 0, pitch: 0.5 }, 1); m.root.rotation.x = 0.15; m.root.position.y = o.p.y - 0.25; }
   else { // crying: hunched, face in the hands, shoulders shaking
     poseSoldier(m, { moving: false, speed: 0, crouch: 0.9, aim: 0, walk: 0, pitch: 0.8 }, 1); m.root.rotation.x = 0.3 + Math.sin(ph * 11) * 0.025; m.root.position.y = o.p.y - 0.3 + Math.sin(ph * 11) * 0.012;
-    if (m.armR) m.armR.rotation.set(-1.9, 0, 0.6); if (m.armL) m.armL.rotation.set(-1.9, 0, -0.6); }
+    m.torso.rotation.x = -0.62 + Math.sin(ph * 11) * 0.02; m.head.rotation.set(-0.5, 0, 0); // bowed forward over the knees (forward is negative here)
+    m.armR.rotation.set(1.05, 0, -0.42); m.armL.rotation.set(1.05, 0, 0.42); m.elR.rotation.set(2.4, 0, 0); m.elL.rotation.set(2.4, 0, 0); } // hands up over the face, not flung back
 }
 /* the plaza paving and the ground under the kiosk are cut away in their shaders so the stairwell shows from above */
 function m10CutPlaza(hole) {

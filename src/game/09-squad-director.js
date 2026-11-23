@@ -71,7 +71,14 @@ function makePressure(o) {
   const tick = setGameEvery(o.every ?? 1.4, () => {
     if (!h.on) return true;
     if (aliveEnemies(h.tag).length >= h.max) return;
-    const ok = o.from.filter((p) => { const pt = v3(p[0], G.groundAt(p[0], p[1]) + 1.5, p[1]); return hiddenFromView(pt) || !hasLOS(P.eyePos, pt); }); const sp = pick(ok.length ? ok : o.from);
+    /* nobody appears out of thin air in plain view: a spawn point must be out of frame, behind something, or deep in the haze.
+       o.ahead keeps them in front of the advance (dir -1: lower z is ahead) so a push is never chased from behind */
+    const ok = o.from.filter((p) => { if (o.ahead != null && (p[1] - P.pos.z) * (o.dir ?? -1) < o.ahead) return false; const pt = v3(p[0], G.groundAt(p[0], p[1]) + 1.5, p[1]); const v = pt.clone().project(camera);
+      return v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1 || pt.distanceTo(camera.position) > 115 || !hasLOS(P.eyePos, pt); });
+    let sp; if (ok.length) { sp = pick(ok); h.miss = 0; }
+    else { h.miss = (h.miss || 0) + 1; if (h.miss * (o.every ?? 1.4) < 8) return; /* a long dry spell: the farthest point ahead, never one at our elbow */
+      const cand = o.ahead != null ? o.from.filter((p) => (p[1] - P.pos.z) * (o.dir ?? -1) >= o.ahead) : o.from; if (!cand.length) return;
+      sp = cand.reduce((a, b) => (Math.hypot(b[0] - P.pos.x, b[1] - P.pos.z) > Math.hypot(a[0] - P.pos.x, a[1] - P.pos.z) ? b : a)); if (Math.hypot(sp[0] - P.pos.x, sp[1] - P.pos.z) < 60) return; h.miss = 0; }
     const to = typeof o.to === 'function' ? o.to() : pick(o.to);
     enemy(sp[0] + rand(-2, 2), sp[1] + rand(-2, 2), { tag: h.tag, kind: Math.random() < (o.heavy ?? 0.12) ? 'heavy' : 'rifle', rush: Math.random() < (o.rush ?? 0.15), goTo: [to[0] + rand(-3, 3), to[1] + rand(-3, 3)], view: o.view ?? 90, acc: o.acc ?? 1, style: o.style });
     h.spawned++;

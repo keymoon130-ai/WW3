@@ -72,7 +72,7 @@ class Vehicle {
     const hw = this.size[0] + 0.25, x0 = Math.min(ax, bx) - hw, x1 = Math.max(ax, bx) + hw, z0 = Math.min(az, bz) - hw, z1 = Math.max(az, bz) + hw, L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.ceil(L / 1.2));
     for (const c of G.colliders) { if (c.max.x < x0 || c.min.x > x1 || c.max.z < z0 || c.min.z > z1) continue;
       for (let i = 0; i <= n; i++) { const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n; if (x + hw < c.min.x || x - hw > c.max.x || z + hw < c.min.z || z - hw > c.max.z) continue;
-        const gy = G.groundAt(x, z); if (c.max.y > gy + 1.2 && c.min.y < gy + 2.2) return true; } }
+        const gy = G.groundAt(x, z); if (c.max.y > gy + 0.8 && c.min.y < gy + 2.2) return true; } } // low barriers count too: a median or a jersey wall is never driven over
     return false;
   }
   unoverlap() {
@@ -92,6 +92,19 @@ class Vehicle {
         const ahead = (v.pos.x - this.pos.x) * fx + (v.pos.z - this.pos.z) * fz > this.size[2] * 0.5; this.cs = (this.cs || 0) * (shove ? 0.985 : ahead ? 0.6 : 0.96); /* nose-on stops us; a scrape along a side only slows us */ v.cs = (v.cs || 0) * 0.8; if (shove && Math.random() < 0.04) FX.dust(v.pos.clone().add(v3(rand(-1, 1), 0.5, rand(-1, 1))), 3, [0.4, 0.38, 0.35], 0.5); v.m.root.position.copy(v.pos); v.syncCol(); } }
     if (G.smash && (this.cs || 0) > 0.8) for (const s of G.smash) { if (s.hit) continue; const dx = s.x - this.pos.x, dz = s.z - this.pos.z; if (dx * dx + dz * dz > (this.size[2] + s.r + 1) ** 2) continue;
       const a = dx * fx + dz * fz, b = Math.abs(dx * fz - dz * fx); if (a > -this.size[2] * 0.5 && a < this.size[2] + s.r && b < this.size[0] + s.r) smashIt(s, this); }
+  }
+  /* weight on the suspension: the nose dips under braking and lifts under power, the hull leans out of a turn, the road hums through it.
+     applied as a change on top of whatever tilt a mission has put on the hull, so scripted sinking or toppling still works */
+  bodySway(dt, moving) {
+    const m = this.m, r = m.root; if (r.rotation.order !== 'YXZ') r.rotation.order = 'YXZ';
+    const cs = this.cs || 0, heavy = this.type === 'tank' ? 0.55 : this.type === 'bmp' || this.type === 'acv' || this.type === 'apc' ? 0.8 : 1;
+    const a = dt > 0 ? (cs - (this.swCs ?? cs)) / dt : 0, yr = dt > 0 ? angDiff(this.swYaw ?? this.yaw, this.yaw) / dt : 0; this.swCs = cs; this.swYaw = this.yaw;
+    const tp = clamp(a * 0.016 * heavy, -0.055, 0.03), tr = clamp(-yr * cs * 0.011 * heavy, -0.06, 0.06);
+    this.swP = damp(this.swP || 0, tp, a < 0 ? 7 : 4, dt); this.swR = damp(this.swR || 0, tr, 3.5, dt);
+    const hum = Math.min(1, cs / 9), t = G.time + (this.vid || this.pos.x * 0.37);
+    const p = this.swP + (Math.sin(t * 21.7) * 0.0016 + Math.sin(t * 13.1) * 0.0012) * hum * heavy, rl = this.swR + Math.sin(t * 17.3) * 0.0014 * hum * heavy;
+    r.rotation.x += p - (this.swAp || 0); r.rotation.z += rl - (this.swAr || 0); this.swAp = p; this.swAr = rl;
+    if (moving || cs > 0.2) r.position.y += (Math.sin(t * 29) * 0.012 + Math.sin(t * 11.3) * 0.008) * hum;
   }
   syncCol() {
     if (!this.col) return; const [hx, hy, hz] = this.size; const c = Math.abs(Math.cos(this.yaw)), s = Math.abs(Math.sin(this.yaw));
@@ -181,7 +194,10 @@ class Vehicle {
               this.detours = this.detBlk === blk ? (this.detours || 0) + 1 : 1; this.detBlk = blk;
               if ((this.pi >= this.path.length - 1 && dl < bf + blk.eF) || (this.detours > 4 && dl < 60)) { this.pi = this.path.length; if (this.o.onArrive) this.o.onArrive(this); }
               else this.planDetour(blk, bf, bl, fx, fz, false); } } else this.heldT = 0; }
-        this.cs = this.cs ?? 0; this.cs = want2 > this.cs ? Math.min(want2, this.cs + acc * dt) : Math.max(want2, this.cs - acc * 2 * dt);
+        /* an S-shaped speed curve: power comes in gently off the line, builds, and eases off as the speed is reached; braking bites then lets go */
+        this.cs = this.cs ?? 0; { const gap = want2 - this.cs;
+          if (gap > 0) { const k = (0.35 + 0.65 * smooth(clamp(this.cs / Math.max(1.5, want2 * 0.3), 0, 1))) * clamp(0.3 + gap / 2.5, 0.3, 1); this.cs = Math.min(want2, this.cs + acc * k * dt); }
+          else this.cs = Math.max(want2, this.cs - acc * 2 * clamp(0.35 - gap / 2, 0.35, 1) * dt); }
         const sp = this.cs;
         if (this.air) { this.vel.set(dx / d * sp, dy / d * sp, dz / d * sp); this.pos.addScaledVector(this.vel, dt); }
         else { this.pos.x -= Math.sin(this.yaw) * sp * dt; this.pos.z -= Math.cos(this.yaw) * sp * dt; }
@@ -195,6 +211,7 @@ class Vehicle {
     this.lastP = this.lastP || v3(); this.lastP.copy(this.pos);
     if (m.details) { const near = this.pos.distanceToSquared(camera.position) < 120 * 120; for (const d of m.details) d.visible = near; }
     m.root.position.copy(this.pos); m.root.rotation.y = this.yaw;
+    if (!this.air && this.size && this.o.sway !== false) this.bodySway(dt, moving);
     if (this.air && this.type !== 'drone') { m.root.rotation.x = clamp(-this.vel.length() * 0.012, -0.25, 0.1); m.rotor.rotation.y += dt * 28; m.tail.rotation.x += dt * 40; if (this.o.bob !== false) m.root.position.y += Math.sin(G.time * 1.3 + this.pos.x) * 0.25; }
     this.syncCol();
     if (this.snd) this.snd.at(this.pos, this.air ? 70 : 30, this.type === 'drone' ? 0.25 : this.air ? 1.2 : 0.7, this.type === 'drone' ? 140 : moving ? 46 : 34);

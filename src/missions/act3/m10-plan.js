@@ -80,7 +80,7 @@ function m10Gwanghwamun() {
   const put = (g, w, h, d, m, x, y, z) => { const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.position.set(x, y, z); me.castShadow = me.receiveShadow = true; g.add(me); return me; };
   const solid = (g, w, h, d, x, z) => { const p = g.localToWorld(v3(x, 0, z)), c = Math.abs(Math.cos(Y)), s = Math.abs(Math.sin(Y)), hx = (w * c + d * s) / 2, hz = (w * s + d * c) / 2; addCollider(p.x - hx, 0, p.z - hz, p.x + hx, h + 0.3, p.z + hz, {}); };
   // the pole in front of the gate, its halyard waiting
-  { const q = at(T - 70, -26); F.poleBase = v3(q.x, 0, q.z); F.poleH = 14;
+  { const q = at(T - 70, -36); F.poleBase /* 10 m further out than before: clear of the plaza's trees (nearest trunk ~12 m), so the flag flies free */ = v3(q.x, 0, q.z); F.poleH = 14;
     addBox(q.x, 0, q.z, 1.6, 0.6, 1.6, mat('ghPoleB', { color: 0xc8c2b6, rough: 0.8 })); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.13, F.poleH, 10), MT.metal()); pole.position.set(q.x, 0.6 + F.poleH / 2, q.z); pole.castShadow = true; G.world.add(pole);
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), mat('ghGoldB', { color: 0xd8b040, metal: 0.7, rough: 0.3 })); ball.position.set(q.x, 0.6 + F.poleH + 0.1, q.z); G.world.add(ball);
     const fg = new THREE.PlaneGeometry(2.7, 1.8, 14, 7); fg.translate(1.35, 0, 0); const fm = new THREE.MeshStandardMaterial({ map: canvasTex(270, 180, (c, w, h) => drawFlag(c, w, h, 'kr')), side: THREE.DoubleSide, roughness: 0.9 });

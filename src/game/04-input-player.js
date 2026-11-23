@@ -57,7 +57,13 @@ function updatePlayer(dt) {
     if (P.yawLim) { const c = P.yawLim; P.yaw = c[0] + clamp(angDiff(c[0], P.yaw), -c[1], c[1]); }
     if (P.pitchLim) P.pitch = clamp(P.pitch, P.pitchLim[0], P.pitchLim[1]);
   }
-  P.swayX = damp(P.swayX, clamp(MS.dx * 0.002, -0.06, 0.06), 10, dt); P.swayY = damp(P.swayY, clamp(MS.dy * 0.002, -0.06, 0.06), 10, dt);
+  /* weapon sway: the gun trails the look on a soft spring (it lags, then settles with a little overshoot); strafing drags it too */
+  { const lvx = P.vel.x * Math.cos(P.yaw) - P.vel.z * Math.sin(P.yaw), sdt = Math.min(dt, 1 / 30);
+    const tx = clamp(MS.dx * 0.0024 + lvx * 0.006, -0.08, 0.08), ty = clamp(MS.dy * 0.0024, -0.08, 0.08);
+    P.swayVX = (P.swayVX || 0) + ((tx - P.swayX) * 150 - (P.swayVX || 0) * 13) * sdt; P.swayVY = (P.swayVY || 0) + ((ty - P.swayY) * 150 - (P.swayVY || 0) * 13) * sdt;
+    P.swayX += P.swayVX * sdt; P.swayY += P.swayVY * sdt; }
+  /* landing: the view is pushed down by the impact and springs back */
+  { const sdt = Math.min(dt, 1 / 30); P.landV = (P.landV || 0) + (-(P.landY || 0) * 90 - (P.landV || 0) * 11) * sdt; P.landY = clamp((P.landY || 0) + P.landV * sdt, -0.3, 0.08); }
   MS.dx = MS.dy = 0;
   if (!P.alive) { P.deadT = (P.deadT || 0) + dt; camera.position.set(P.pos.x, P.pos.y + Math.max(0.25, 1.6 - P.deadT * 2), P.pos.z); camera.rotation.set(P.pitch, P.yaw, Math.min(P.deadT, 1) * 0.6); return; }
   const ctl = !G.cut && !P.frozen;
@@ -78,7 +84,9 @@ function updatePlayer(dt) {
   if (P.inWater) spd *= 0.55;
   _f.set(-Math.sin(P.yaw), 0, -Math.cos(P.yaw)); _r.set(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
   const tvx = (_f.x * fz + _r.x * fx) * spd, tvz = (_f.z * fz + _r.z * fx) * spd;
-  const acc = P.onGround ? 12 : 3;
+  /* a body with kit on gets going over a few steps and stops a little quicker than it starts */
+  const speeding = tvx * tvx + tvz * tvz > P.vel.x * P.vel.x + P.vel.z * P.vel.z + 0.01;
+  const acc = P.onGround ? (speeding ? 6.5 : 9.5) : 3;
   P.vel.x = damp(P.vel.x, tvx, acc, dt); P.vel.z = damp(P.vel.z, tvz, acc, dt);
   if (P.ride) {
     const R = P.ride; const o = R.obj; o.updateMatrixWorld(); const wp = v3(R.off[0], R.off[1], R.off[2]).applyMatrix4(o.matrixWorld);
@@ -91,7 +99,7 @@ function updatePlayer(dt) {
     const fl = floorAt(P.pos.x, P.pos.z, P.pos.y);
     if (ctl && K.Space && P.onGround && P.crouch < 0.5 && !P.locked) { P.vel.y = 3.4; P.onGround = false; }
     P.vel.y -= 15 * dt; P.pos.y += P.vel.y * dt;
-    if (P.pos.y <= fl) { if (!P.onGround && P.vel.y < -6) { G.shake += 0.08; SFX.step(G.env.snow); } P.pos.y = fl; P.vel.y = 0; P.onGround = true; }
+    if (P.pos.y <= fl) { if (!P.onGround && P.vel.y < -2.5) { P.landV = (P.landV || 0) - Math.min(2.6, -P.vel.y * 0.32); if (P.vel.y < -6) G.shake += 0.08; SFX.step(G.env.snow); } P.pos.y = fl; P.vel.y = 0; P.onGround = true; }
     else if (P.pos.y - fl > 0.4) P.onGround = false;
     else if (P.vel.y <= 0) { P.pos.y = damp(P.pos.y, fl, 20, dt); P.onGround = true; }
     P.speed = Math.hypot(P.vel.x, P.vel.z);
@@ -111,7 +119,7 @@ function updatePlayer(dt) {
   const bx = Math.sin(P.bob) * 0.035 * bobA, by = Math.abs(Math.cos(P.bob)) * 0.05 * bobA * (P.sprinting ? 1.6 : 1);
   P.eyePos.set(P.pos.x, P.pos.y + eyeH, P.pos.z); P.chestPos.set(P.pos.x, P.pos.y + eyeH - 0.45, P.pos.z);
   const sh = Math.min(G.shake, 1.5); G.shake = Math.max(0, G.shake - dt * 1.8);
-  camera.position.set(P.pos.x + _r.x * bx + rand(-1, 1) * sh * 0.06, P.pos.y + eyeH + by + rand(-1, 1) * sh * 0.06, P.pos.z + _r.z * bx);
+  camera.position.set(P.pos.x + _r.x * bx + rand(-1, 1) * sh * 0.06, P.pos.y + eyeH + by + (P.landY || 0) + rand(-1, 1) * sh * 0.06, P.pos.z + _r.z * bx);
   // the gun camera (H): look from just ahead of the K-M19's muzzle instead of from the seat
   { const on = !!(G.gunCam && G.gunCamPod && P.ride && ['km19', 'm134'].includes(curId()) && !G.cut); if (!on && G.gunCam && (!P.ride || !['km19', 'm134'].includes(curId()))) G.gunCam = false;
     if (on) { G.gunCamPod.updateMatrixWorld(); G.gunCamPod.localToWorld(camera.position.set(0, -0.32, -1.7)); camera.position.x += rand(-1, 1) * sh * 0.03; camera.position.y += rand(-1, 1) * sh * 0.03; }

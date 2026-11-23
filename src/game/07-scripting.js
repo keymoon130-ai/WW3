@@ -180,13 +180,16 @@ function makeS() {
        and the ground right behind each hull becomes cover the soldiers use */
     armorPush(list, o = {}) {
       const dir = o.dir ?? -1, lead = o.lead ?? 14; const out = [];
+      const owner = {}; /* a vehicle already on the field can be handed a new push (d.v): it drives on from where it is instead of a fresh one appearing */
       for (const d of list) {
+        if (d.v && d.v.alive) { const v = d.v; v.path = (d.path || []).map((p) => v3(p[0], 0, p[1])); v.pi = 0; v.speed = d.speed ?? 2.6; v.stopped = false; v.pushBy = owner;
+          if (!v.covers) { const cov = [v3(), v3(), v3()]; G.covers.push(...cov); v.covers = cov; } out.push(v); continue; }
         const v = d.type === 'k21' ? S.allyBMP(d.x, d.z, d.yaw ?? (dir < 0 ? 0 : Math.PI), { invuln: true, speed: d.speed ?? 2.6, path: d.path, sam: !!d.sam, rpg: !!d.rpg })
           : new Vehicle(d.type, d.x, d.z, { team: 'ally', armed: true, invuln: true, speed: d.speed ?? 2.6, path: d.path, color: d.color, reload: 6, range: 170, accurate: true, yieldPeople: false, yaw: d.yaw ?? (dir < 0 ? 0 : Math.PI) });
         v.yaw = d.yaw ?? (dir < 0 ? 0 : Math.PI); v.m.root.rotation.y = v.yaw; if (d.type === 'k21') { v.o.yieldPeople = false; v.o.reload = 3; }
-        const cov = [v3(), v3(), v3()]; G.covers.push(...cov); v.covers = cov; out.push(v);
+        const cov = [v3(), v3(), v3()]; G.covers.push(...cov); v.covers = cov; v.pushBy = owner; out.push(v);
       }
-      S.every(0.3, () => { for (const v of out) { if (!v.alive) continue; const ahead = (v.pos.z - P.pos.z) * dir; v.stopped = !G.armorFree && (ahead > lead || !!G.armorHold); const bx = Math.sin(v.yaw), bz = Math.cos(v.yaw); v.covers[0].set(v.pos.x + bx * 6.5, 0, v.pos.z + bz * 6.5); v.covers[1].set(v.pos.x + bx * 5.5 + bz * 2.6, 0, v.pos.z + bz * 5.5 - bx * 2.6); v.covers[2].set(v.pos.x + bx * 5.5 - bz * 2.6, 0, v.pos.z + bz * 5.5 + bx * 2.6); } });
+      S.every(0.3, () => { for (const v of out) { if (!v.alive || v.pushBy !== owner) continue; const ahead = (v.pos.z - P.pos.z) * dir; v.stopped = !G.armorFree && (ahead > lead || !!G.armorHold); const bx = Math.sin(v.yaw), bz = Math.cos(v.yaw); v.covers[0].set(v.pos.x + bx * 6.5, 0, v.pos.z + bz * 6.5); v.covers[1].set(v.pos.x + bx * 5.5 + bz * 2.6, 0, v.pos.z + bz * 5.5 - bx * 2.6); v.covers[2].set(v.pos.x + bx * 5.5 - bz * 2.6, 0, v.pos.z + bz * 5.5 + bx * 2.6); } });
       return out;
     },
     /* friendly IFV with launchers stowed in the back */

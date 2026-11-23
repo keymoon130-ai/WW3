@@ -209,14 +209,14 @@ function roadRibbon(cx, wf, z0, z1, o = {}) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, o.mat || MT.road()); m.receiveShadow = true; G.staticRoot.add(m); return m;
 }
-function roadStrip(x, z, w, len, rot = 0, y) {
+function roadStrip(x, z, w, len, rot = 0, y, o = {}) {
   if (y === undefined) {
     // drape the road over the terrain so vehicles driving on the ground never sink through it or float under it
     const segL = Math.max(1, Math.ceil(len / 2)), geo = new THREE.PlaneGeometry(w, len, 2, segL); geo.rotateX(-Math.PI / 2);
     const pos = geo.attributes.position, c = Math.cos(rot), sn = Math.sin(rot);
     for (let i = 0; i < pos.count; i++) { const lx = pos.getX(i), lz = pos.getZ(i); const wx = x + lx * c + lz * sn, wz = z - lx * sn + lz * c; pos.setY(i, G.groundAt(wx, wz) + 0.05); }
     geo.computeVertexNormals(); const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i), uv.getY(i) * len / 20);
-    const m = new THREE.Mesh(geo, MT.road()); m.position.set(x, 0, z); m.rotation.y = rot; m.receiveShadow = true; G.world.add(m); return m;
+    const m = new THREE.Mesh(geo, o.mat || MT.road()); m.position.set(x, 0, z); m.rotation.y = rot; m.receiveShadow = true; G.world.add(m); return m;
   }
   const m = addMesh(boxGeo(w, 0.04, len), MT.road(), x, (y ?? G.groundAt(x, z)) + 0.02, z, { rot: [0, rot, 0], cast: false }); const uv = m.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i), uv.getY(i) * len / 20); return m; }
 /* water plane */

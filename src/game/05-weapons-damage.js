@@ -48,6 +48,7 @@ function updateWeapon(dt) {
   py += Math.sin(G.time * 1.6) * 0.0025 * (1 - ads * 0.8); px += Math.cos(G.time * 0.8) * 0.0015 * (1 - ads * 0.8);
   // sway
   px -= P.swayX * 0.2 * (1 - ads * 0.7); py += P.swayY * 0.2 * (1 - ads * 0.7); ry += P.swayX * 0.6 * (1 - ads * 0.7); rx += P.swayY * 0.5 * (1 - ads * 0.7);
+  py += (P.landY || 0) * 0.35 * (1 - ads * 0.6); rx += (P.landY || 0) * 0.5 * (1 - ads * 0.6); /* the landing dips the gun a beat behind the view */
   // kick
   pz += P.kick * 0.05 * (1 - ads * 0.5); rx += P.kick * 0.09 * (1 - ads * 0.7);
   // crouch tilt
