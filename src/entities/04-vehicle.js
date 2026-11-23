@@ -75,6 +75,21 @@ class Vehicle {
         const gy = G.groundAt(x, z); if (c.max.y > gy + 0.8 && c.min.y < gy + 2.2) return true; } } // low barriers count too: a median or a jersey wall is never driven over
     return false;
   }
+  /* never inside a wall: whatever pushed us there (a detour's way back, a shove from another hull), a tall fixed obstacle — a wall, a noise
+     barrier, a pier, a building, a container stack — pushes the hull back out along its shallower side. Low things (kerbs, sandbags,
+     wrecks a tank shoves) and anything overhead (bridge decks) are left to the path planning */
+  unwall() {
+    const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw), rx = -fz, rz = fx, L = this.size[2] * 0.92, W = this.size[0] * 0.92;
+    const x0 = this.pos.x - L - W, x1 = this.pos.x + L + W, z0 = this.pos.z - L - W, z1 = this.pos.z + L + W, gy = this.pos.y;
+    for (const c of G.colliders) { if (c.max.x < x0 || c.min.x > x1 || c.max.z < z0 || c.min.z > z1 || c.max.y < gy + 1.6 || c.min.y > gy + 1.5 || c.ghost) continue;
+      let px = 0, pz = 0, hit = false;
+      for (const a of [-1, -0.5, 0, 0.5, 1]) for (const b of [-1, 0, 1]) { const sx = this.pos.x + fx * L * a + rx * W * b, sz = this.pos.z + fz * L * a + rz * W * b;
+        if (sx <= c.min.x || sx >= c.max.x || sz <= c.min.z || sz >= c.max.z) continue; hit = true;
+        const dxa = c.max.x - sx, dxb = sx - c.min.x, dza = c.max.z - sz, dzb = sz - c.min.z, mx = dxa < dxb ? dxa : -dxb, mz = dza < dzb ? dza : -dzb;
+        if (Math.abs(mx) < Math.abs(mz)) { if (Math.abs(mx) > Math.abs(px)) px = mx; } else if (Math.abs(mz) > Math.abs(pz)) pz = mz; }
+      if (hit) { this.pos.x += px; this.pos.z += pz; this.cs = (this.cs || 0) * 0.85; this.wallT = G.time; }
+    }
+  }
   unoverlap() {
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw), L = Math.max(0, this.size[2] - this.size[0]), w = this.size[0] * 0.85;
     for (const v of G.vehicles) { if (v === this || v.air || !v.size || v.type === 'drone' || (!v.alive && v.pos.y > 3)) continue; const shove = !v.alive && this.type === 'tank';
@@ -205,7 +220,7 @@ class Vehicle {
       }
     } else if (this.air) this.vel.multiplyScalar(0.95);
     if (!moving) this.cs = Math.max(0, (this.cs || 0) - (this.air ? 3.5 : 3) * dt);
-    if (!this.air && this.size && this.type !== 'drone') this.unoverlap();
+    if (!this.air && this.size && this.type !== 'drone') { this.unoverlap(); if (G.vehWalls && !this.o.ghost) this.unwall(); } // per mission: some maps drive armour up rubble over a wall on purpose
     if (!this.air) { const gy = this.o.yFn ? this.o.yFn(this.pos.x, this.pos.z) : (this.o.y ?? G.groundAt(this.pos.x, this.pos.z)); this.pos.y = gy; }
     if (m.wheels && this.lastP) { const dd = Math.hypot(this.pos.x - this.lastP.x, this.pos.z - this.lastP.z); if (dd > 0.0001) for (const w of m.wheels) w.rotation.x -= dd / w.userData.r; }
     this.lastP = this.lastP || v3(); this.lastP.copy(this.pos);

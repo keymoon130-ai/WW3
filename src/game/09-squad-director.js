@@ -97,7 +97,7 @@ async function startMission(idx, phase = 0, keepSub = false) {
   if (!keepSub || !G.cpSub || G.cpSub.key !== idx + ':' + phase) G.cpSub = null;
   G.mission = m; G.missionIdx = idx; G.phaseI = phase;
   if (G.ffwd) endFfwd(); if (G.onLeave) { G.onLeave(); G.onLeave = null; } if (G.envReset) { G.envReset(); G.envReset = null; } G.realism = false; G.skipHold = 0; G.sqMarks = null; G.gunCam = false; G.beatFov = 0; G.gunCamPod = null; G.gunCamCockpit = null; G.atBox = null; G.worryT = G.ammoT = G.praiseT = G.multiT = -99; G.killTimes = []; G.chats = 0; G.inCredits = false; { const cr = $('credits'); if (cr) { cr.hidden = true; cr.classList.remove('on'); } }
-  G.strikeMode = null; G.m7war = null; G.m7radio = null; G.m7squads = null; G.m7sqOn = false; G.m7sky = false; G.smash = null; G.ridersName = null; G.armorFree = false; G.armorHold = false; G.seoulCollapse = null; G.crush = []; G.crushOn = false; G.crushers = [];
+  G.strikeMode = null; G.m7war = null; G.m7radio = null; G.m7squads = null; G.m7sqOn = false; G.m7sky = false; G.smash = null; G.ridersName = null; G.armorFree = false; G.armorHold = false; G.vehWalls = false; G.seoulCollapse = null; G.crush = []; G.crushOn = false; G.crushers = [];
   for (const v of AU.jets || []) v.stop(); AU.jets = [];
   G.tutShown = {}; TUT.q = []; TUT.cur = null; G.tutPos = null; { const el = $('tut'); if (el) el.classList.remove('on'); }
   if (idx === 0 && phase === 0) setTimeout(() => tut('marker', '화면의 <b>노란 마름모 ◆</b>를 따라가세요! 지금 가야 할 곳, 노려야 할 목표를 항상 가리켜요. 처음 나오는 기능은 이 노란 창이 하나씩 알려 줄 거예요.', null, 9), 0);

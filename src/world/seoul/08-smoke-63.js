@@ -31,7 +31,7 @@ function hgYeouido() {
   const tr = [], cr = []; for (let i = 0; i < 70; i++) { const x = rand(-1480, -600), zc = x > -793 ? -2 - (x + 560) * 0.095 : x > -1043 ? -24 - (x + 793) * 0.31 : -102 - (x + 1043) * 0.33, z = rand(zc + 8, 8); tr.push([x, -1.6, z]); cr.push([x, 2.4, z, 0, 0, 0, rand(1, 1.4)]); }
   hgInst(new THREE.CylinderGeometry(0.15, 0.25, 4.8, 6), hgMat('bark', { color: 0x4a4038, rough: 1 }), tr, { cast: false }); hgInst(new THREE.IcosahedronGeometry(2.6, 1), hgMat('twigs', { color: 0x5a5046, rough: 1, transparent: true, opacity: 0.22 }), cr, { cast: false });
 }
-function hg63(state = 'charred') {
+function hg63(state = 'charred', at = Y63) { /* at: where it stands ({x, z, yaw}); the 한강대로 maps use its real spot, other maps pass their own */
   const fogC = new THREE.Color(G.env.fog ?? 0xbcbab4), dens = G.env.fogD ?? 0.001, k = Math.min(0.2, 1 - Math.exp(-Math.pow(dens * 800, 2)));
   const haze = (m, kk = k) => { m.fog = false; m.color.multiplyScalar(1 - kk); m.emissive = new THREE.Color().copy(fogC).multiplyScalar(kk); m.emissiveIntensity = 1; return m; };
   if (!SS.T63) { SS.T63 = {};
@@ -46,11 +46,11 @@ function hg63(state = 'charred') {
     SS.T63.soot = canvasTex(128, 256, (c, w, h) => { c.clearRect(0, 0, w, h); for (let i = 0; i < 70; i++) { const v = Math.pow(Math.random(), 1.6), y = h * (1 - v * 0.95), x = w / 2 + rand(-1, 1) * w * (0.22 + 0.2 * v), r = rand(10, 26) * (1 - v * 0.4), a = 0.32 * (1 - v);
       const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(10,8,6,${a})`); g.addColorStop(1, 'rgba(10,8,6,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); } });
     SS.T63.flame = canvasTex(128, 256, (c, w, h) => { c.clearRect(0, 0, w, h); for (let i = 0; i < 3; i++) { const g = c.createRadialGradient(w / 2, h * 0.78, 4, w / 2, h * 0.6, h * 0.55); g.addColorStop(0, 'rgba(255,240,180,1)'); g.addColorStop(0.35, 'rgba(255,150,40,.9)'); g.addColorStop(0.75, 'rgba(200,50,10,.45)'); g.addColorStop(1, 'rgba(120,20,0,0)'); c.fillStyle = g; c.beginPath(); c.moveTo(w * 0.15, h); c.quadraticCurveTo(w * (0.1 + i * 0.1), h * 0.4, w / 2 + rand(-20, 20), 0); c.quadraticCurveTo(w * (0.9 - i * 0.1), h * 0.4, w * 0.85, h); c.fill(); } }); }
-  const T = SS.T63;
-  const gold = haze(new THREE.MeshStandardMaterial({ map: T.gold, roughness: 0.18, metalness: 0.75, color: 0xffe08a })); gold.userData.tile = [12, 31.2];
+  const T = SS.T63, gm = at.metal ?? 0.75; /* a map without the Seoul sky reflections asks for less metal, or the glass reads grey */
+  const gold = haze(new THREE.MeshStandardMaterial({ map: T.gold, roughness: 0.18, metalness: gm, color: 0xffe08a })); gold.userData.tile = [12, 31.2];
   const dark = haze(new THREE.MeshStandardMaterial({ color: 0x2a2620, roughness: 0.25, metalness: 0.7 })), steel = haze(new THREE.MeshStandardMaterial({ color: 0x8a8478, roughness: 0.5, metalness: 0.5 }));
-  const podium = haze(new THREE.MeshStandardMaterial({ map: T.gold, roughness: 0.2, metalness: 0.75, color: 0xc8c0b0 })); podium.userData.tile = [12, 31.2];
-  const root = new THREE.Group(); root.position.set(Y63.x, 0, Y63.z); root.rotation.y = Y63.yaw; G.world.add(root);
+  const podium = haze(new THREE.MeshStandardMaterial({ map: T.gold, roughness: 0.2, metalness: gm, color: 0xc8c0b0 })); podium.userData.tile = [12, 31.2];
+  const root = new THREE.Group(); root.position.set(at.x, at.y ?? 0, at.z); root.rotation.y = at.yaw; G.world.add(root);
   SS.bins = SS.bins || new Map();
   // the massing, from the photos: a straight slab, flat roof, the broad gold face (local +x) a fine grid, a dark sign band just
   // under the roof; the near end (+z) is two slabs
@@ -70,10 +70,10 @@ function hg63(state = 'charred') {
   lb(podium, -62, -14, 0, 21, -30, 40); lb(dark, -62.5, -13.5, 21, 22.5, -30.5, 40.5); lb(dark, 14, 20, 0, 5, -12, 12);
   ssFlush(); for (const ch of root.children) { ch.castShadow = false; ch.receiveShadow = false; }
   root.updateMatrixWorld(true);
-  addCollider(Y63.x - 32, 0, Y63.z - 32, Y63.x + 32, 250, Y63.z + 32, {});
+  addCollider(at.x - 32, at.y ?? 0, at.z - 32, at.x + 32, 250, at.z + 32, {});
   // fires / burns: where they are on the facades (side 'f' = the broad face, 's' = the river-end face)
   const spot = (side, u, y, off = 0.5) => { const p = side === 'f' ? v3(14 + off, y, -1.5 + u * 28.5) : v3(14 - 28 * u, y, -30 - off); return root.localToWorld(p); };
-  const nrm = (side) => { const v = side === 'f' ? v3(1, 0, 0) : v3(0, 0, -1); return v.applyAxisAngle(v3(0, 1, 0), Y63.yaw); };
+  const nrm = (side) => { const v = side === 'f' ? v3(1, 0, 0) : v3(0, 0, -1); return v.applyAxisAngle(v3(0, 1, 0), at.yaw); };
   const spots = [['f', -0.3, 97, 20], ['f', 0.45, 101, 12], ['f', 0.05, 137, 24], ['f', -0.6, 141, 10], ['f', 0.25, 187, 15], ['s', 0.4, 119, 10], ['s', 0.55, 175, 9], ['f', -0.15, 62, 8]];
   const plane = (m, side, u, y, w, h, off) => { const me = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m), p = spot(side, u, y, off), n = nrm(side); me.position.copy(p); me.lookAt(p.clone().add(n)); G.world.add(me); return me; };
   const burnM = new THREE.MeshBasicMaterial({ map: T.burn, transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide, color: new THREE.Color(1, 1, 1).lerp(fogC, k * 0.5) });

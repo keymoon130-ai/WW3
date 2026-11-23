@@ -4,6 +4,7 @@ module.exports = [
   { name: 'xway', when: `G.phaseI === 0 && P.ride && P.pos.z < -140`, cam: null },
   { name: 'rampline', when: `G.phaseI === 1 && P.pos.z < -800`, cam: `[34, 22, -820, -4, 2, -960]`, fov: 60 },
   { name: 'arrive', when: `G.phaseI === 4 && G.vehicles.some((v) => v.type === 'bmp' && v.team === 'ally' && (v.cs || 0) > 5 && v.pos.z > -1440 + 60 && v.pos.z < -1440 + 140)`, cam: `[5, 2.2, -1440 + 8, -6, 2, -1440 + 120]`, fov: 60 },
+  { name: 'roadend', when: `G.phaseI === 4 && G.cut && scene.fog.density < 0.002`, cam: `[-110, 38, -2620, -222, 0, -2760]`, fov: 60 },
   { name: 'end63', when: `G.phaseI === 4 && G.cut && scene.fog.density < 0.002`, cam: null },
 ];
 module.exports.probe = `G.__pen = {}; G.updaters.push(() => { for (const v of G.vehicles) { if (v.air || !v.size || !v.alive) continue; const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw), rx = -fz, rz = fx;

@@ -39,7 +39,8 @@ function ambushRun(S, ride, groups, o = {}) {
    yellow edge line | 4 lanes × 3.5 m, white dashes | white edge line | 2.6 m shoulder | W-beam guardrail | noise wall (steel lower panels, clear upper) */
 const GI = { start: 60, collapse: -600, ramp: -900, apt0: -1050, bank: -1440, // ramp: 신월IC, where its ramps peel off; bank: the end of the 경인고속도로, where it becomes 국회대로
   rt: [[0, -1440], [0, -1950], [170, -2280], [20, -2500], [-170, -2690]], sx: 125, sz0: -2240, sz1: -3300, han: -260, // 샛강 (x = sx, and its mouth along z = sz0), 한강 north of x = han
-  nb: -1100, rail: 17.4, wall: 18.4, gapZ: -1252, xo0: -750, xo1: -812 }; // xo: the median crossover // nb: the 남부순환로 overpass; gapZ: a stretch of noise wall blown open (the side street the BMP uses)
+  nb: -1100, rail: 17.4, wall: 18.4, gapZ: -1252, xo0: -750, xo1: -812, // xo: the median crossover
+  rv: -222, rv0: -2240, rv1: -3300, x63: 70, z63: -2960 }; // rv: the riverside road along the 한강 (x = rv, from z = rv0 to rv1); 63빌딩 // nb: the 남부순환로 overpass; gapZ: a stretch of noise wall blown open (the side street the BMP uses)
 GI.amb5 = [[150, 1, 4], [290, -1, 5], [430, 1, 4], [600, -1, 5], [760, 1, 4], [1040, -1, 5], [1150, 1, 4]]; // 국회대로 ambushes: [distance, side, men]
 GI.snipers = [[-1, -1125, 24], [1, -1170, 30], [-1, -1240, 21], [1, -1305, 33], [-1, -1370, 27]];
 /* the 신월IC ramps: |x| of the ramp's centre line and its height, from where it leaves the carriageway (z = ramp + 40) up to the overpass deck */
@@ -180,6 +181,14 @@ function buildGukhoe() {
     addBox(cx, 0, cz, 0.7, 0.9, L - 18, MT.concrete(), { tile: 3, rotY: rot, collide: false });
     for (const sd of [-1, 1]) addBox(cx - fz * sd * 26, -0.03, cz + fx * sd * 26, 22, 0.06, L + 22, MT.concrete(), { tile: 4, rotY: rot, collide: false, cast: false }); } // pavements and forecourts: this is a city, not a field
   addBox(-70, -0.03, -2780, 330, 0.06, 1010, MT.concrete(), { tile: 5, collide: false, cast: false }); // 여의도
+  // the road does not just stop: the last leg runs on to a T with the riverside road (여의서로), which carries on along the 한강 both ways
+  { const [ax, az] = R[R.length - 2], [bx, bz] = R[R.length - 1], l = Math.hypot(bx - ax, bz - az), fx = (bx - ax) / l, fz = (bz - az) / l, rot = Math.atan2(fx, fz), ext = Math.abs((GI.rv - bx) / fx) - 8;
+    for (const sd of [-1, 1]) roadStrip(bx + fx * ext / 2 - fz * sd * 8, bz + fz * ext / 2 + fx * sd * 8, 14, ext + 8, rot);
+    addBox(bx + fx * (ext / 2 - 4), 0, bz + fz * (ext / 2 - 4), 0.7, 0.9, ext - 14, MT.concrete(), { tile: 3, rotY: rot, collide: false });
+    for (const sd of [-1, 1]) roadStrip(GI.rv + sd * 4.6, (GI.rv0 + GI.rv1) / 2, 9, GI.rv0 - GI.rv1, 0, 0.03); // a touch higher than the leg's end, so the two never flicker where they meet
+    addBox(GI.rv - 9.7, 0, (GI.rv0 + GI.rv1) / 2, 0.3, 0.9, GI.rv0 - GI.rv1, MT.metal(), { collide: false }); // rail on the river kerb
+    for (let z = GI.rv0 - 20; z > GI.rv1; z -= 36) addBox(GI.rv + 10.5, 0, z, 0.25, 9, 0.25, MT.metal(), { collide: false }); // lamps on the city side
+    signBoard(bx + fx * (ext - 14) + fz * 19, 5.4, bz + fz * (ext - 14) - fx * 19, '여의서로', { w: 6, bg: '#1e6a3c', sub: '← 마포대교 · 국회의사당 →', ry: rot + Math.PI }); }
   // 신월IC: the ramps peel off left and right where the expressway ends
   for (const sd of [-1, 1]) { roadStrip(sd * 24, GI.bank - 40, 8, 90, sd * 0.35); }
   hwSign(GI.bank + 30, '신월 IC', '국회대로 · 여의도 →'); hwSign(GI.bank - 160, '국회대로', '목동 · 여의도 6km');
@@ -191,7 +200,7 @@ function buildGukhoe() {
   for (let i = 0; i < 4; i++) { const p = giAt(rand(80, L - 200), pick([-1, 1]) * rand(30, 45)); tankWreck(p.x, p.z, rand(0, 3), Math.random() < 0.5); }
   // blocks either side: 목동's apartment towers, then 영등포's low streets, then 여의도's offices
   const E = giAt(giLen()), to63 = (x, z) => { const vx = 70 - E.x, vz = -2960 - E.z, t = clamp(((x - E.x) * vx + (z - E.z) * vz) / (vx * vx + vz * vz), 0, 1); return Math.hypot(x - E.x - vx * t, z - E.z - vz * t); };
-  const free = (x, z, r) => !(x < E.x + 60 && Math.abs(z - E.z) < 110 + r) && to63(x, z) > 30 + r && giRoadDist(x, z) > 24 + r && !(Math.abs(x - GI.sx) < 22 + r && z < GI.sz0 + 22 + r) && !(Math.abs(z - GI.sz0) < 22 + r && x < GI.sx + 22 + r && x > GI.han - 10) && x > GI.han + 30 + r;
+  const free = (x, z, r) => Math.abs(x - GI.rv) > 16 + r && Math.hypot(x - GI.x63, z - GI.z63) > 80 + r && !(x < E.x + 60 && Math.abs(z - E.z) < 110 + r) && to63(x, z) > 30 + r && giRoadDist(x, z) > 24 + r && !(Math.abs(x - GI.sx) < 22 + r && z < GI.sz0 + 22 + r) && !(Math.abs(z - GI.sz0) < 22 + r && x < GI.sx + 22 + r && x > GI.han - 10) && x > GI.han + 30 + r;
   const placed = []; const put = (x, z, w, d, h, o) => { const r = Math.max(w, d) / 2; if (!free(x, z, r) || placed.some(([px, pz, pr]) => Math.hypot(px - x, pz - z) < pr + r + 4)) return false; placed.push([x, z, r]); building(x, z, w, d, h, o); return true; };
   for (let d = 0; d < L; d += 9) for (const sd of [-1, 1]) { const p = giAt(d, sd * rand(36, 150)), zone = d < 520 ? 'mok' : d < 880 ? 'ydp' : 'yeo';
     if (zone === 'mok') put(p.x, p.z, rand(14, 18), rand(36, 46), rand(40, 58), { hue: pick([200, 210, 40]), lit: 0.04, broken: 0.5, fire: Math.random() < 0.3 ? 2 : 0 });
@@ -209,7 +218,7 @@ function buildGukhoe() {
   // 여의도: 국회의사당's dome to the west, 63빌딩 gold at the far end, the city across the river burning
   { const x = -150, z = -2470; addBox(x, 0, z, 70, 22, 52, mat('assembly', { map: 'concrete', color: 0xd8d4c8 }), { tile: 6 }); const dome = new THREE.Mesh(new THREE.SphereGeometry(18, 24, 12, 0, TAU, 0, Math.PI / 2), mat('domeg', { color: 0x5a7a6a, rough: 0.5, metal: 0.4 })); dome.position.set(x, 22, z); dome.castShadow = true; G.world.add(dome);
     for (let i = -3; i <= 3; i++) addBox(x + i * 9, 0, z - 27, 1.6, 20, 1.6, MT.concrete(), { collide: false }); }
-  addBox(70, 0, -2960, 34, 160, 26, mat('gold63b', { color: 0xd8aa48, rough: 0.35, metal: 0.25, emissive: 0x4a3008 }), { collide: false }); // 63빌딩: gold glass catching the fires
+  hg63('charred', { x: GI.x63, z: GI.z63, yaw: -2.29, metal: 0.2 }); // 63빌딩: the same model as the 한강대로 missions, a month after the fires (its broad gold face turned to us)
   for (let i = 0; i < 70; i++) { const x = rand(-1000, -800), z = rand(-2200, -3300); building(x, z, rand(20, 40), rand(20, 40), rand(40, 140), { hue: 210, lit: 0.06, broken: 0.3, fire: Math.random() < 0.4 ? 2 : 0 }); }
   for (let i = 0; i < 14; i++) addEmitter(v3(rand(-1000, -800), rand(30, 90), rand(-2300, -3200)), 'smoke', 4, 1.5); for (let i = 0; i < 10; i++) addEmitter(v3(rand(-990, -810), rand(2, 30), rand(-2400, -3100)), 'fire', 3, 18);
 }
@@ -276,7 +285,7 @@ defMission({
   bounds: [-60, GI.bank - 40, 60, 90],
   hitMul: 0.85,
   build(S) {
-    buildGyeongin(); G.m10aCol = null; G.m10aPush = null;
+    buildGyeongin(); G.m10aCol = null; G.m10aPush = null; G.vehWalls = true; // no hull ever ends up inside a noise wall, pier or building here
     squad(S, [
       { key: 'park', name: '박도현 중위', x: -4, z: 52 }, { key: 'lee', name: '리선우 병장', x: 4, z: 52 },
       { key: 'yoon', name: '윤하린 중사', x: -4, z: 56 }, { key: 'han', name: '한지운 하사', x: 4, z: 56 },
@@ -455,7 +464,7 @@ defMission({
         await S.say('박도현 중위', '여의도다! 정지! 주변 확보!', { dur: 2.4 });
         await S.cut(async () => {
           const fd = scene.fog.density; scene.fog.density = 0.0012; // the morning haze lifts enough to see across the river
-          const e = giAt(L); await S.cam(v3(e.x + 8, 6, e.z + 12), v3(70, 80, -2960), 0); S.camFov(55);
+          const e = giAt(L); await S.cam(v3(e.x + 8, 6, e.z + 12), v3(GI.x63, 120, GI.z63), 0); S.camFov(55);
           S.music('sad');
           await S.radio('수도방위사령부', '양방향 상륙 성공 확인. 1군단은 한강대교, 원효대교로 진격하여 용산부근을 탈환한뒤 계속 진격하라!', { dur: 5 });
           S.cam(v3(e.x - 20, 8, e.z + 4), v3(-1000, 40, -2780), 7, (t) => t * t * (3 - 2 * t)); // from 63빌딩 round to the river and the city across it
