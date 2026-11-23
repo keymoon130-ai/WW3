@@ -170,6 +170,27 @@ function buildGyeongin() {
   // the apartment blocks the snipers hold, built with the world (not when the fight starts)
   for (const [x, z, h] of GI.snipers) { building(x * 53, z, 40, 12, h + 9, { hue: 210, lit: 0.04, broken: 0.6 }); addBox(x * 32, h - 0.3, z, 2.2, 0.3, 3.4, MT.concreteD()); addBox(x * 30.95, h, z, 0.15, 1.0, 3.4, MT.metal(), { bullet: false }); }
   buildGukhoe();
+  giTrees();
+}
+/* 신월IC's planting: clumps of pine and bare March broadleaves on the embankments round the ramps, and where the expressway
+   runs out into 국회대로. Nothing goes on a carriageway, a ramp, the blown gap, or within 2 m of anything solid (walls, wrecks, buildings) */
+function giTrees() {
+  const placed = [], ramps2 = [-1, 1].map((sd) => { const c = v3(sd * 24, 0, GI.bank - 40), d = v3(Math.sin(sd * 0.35), 0, Math.cos(sd * 0.35)); return [c, d]; });
+  const ok = (x, z) => { const ax = Math.abs(x);
+    if (z > GI.bank + 30 && ax < 20) return false; // the expressway and its noise walls
+    if (z <= GI.bank + 30 && giRoadDist(x, z) < 19) return false; // 국회대로 and its pavement edge
+    if (giOnRamp(z) && Math.abs(ax - giRampX(z)) < 6.5) return false; // the 신월IC ramps
+    for (const [c, d] of ramps2) { const rx = x - c.x, rz = z - c.z, t = clamp(rx * d.x + rz * d.z, -45, 45); if (Math.hypot(rx - d.x * t, rz - d.z * t) < 7) return false; } // the end-of-expressway ramps
+    if (x > 0 && Math.abs(z - GI.gapZ) < 26) return false; // the side street the BMP comes down
+    if (placed.some(([px, pz]) => Math.hypot(px - x, pz - z) < 3.6)) return false;
+    const gy = G.groundAt(x, z); for (const c of G.colliders) if (x > c.min.x - 2 && x < c.max.x + 2 && z > c.min.z - 2 && z < c.max.z + 2 && c.max.y > gy + 0.5 && c.min.y < gy + 6) return false;
+    return true; };
+  const zones = [[20, 60, GI.ramp + 90, GI.nb - 50, 55], [20, 33, GI.nb - 50, GI.bank + 30, 34], [20, 35, GI.bank + 30, GI.bank - 200, 30]]; // [|x| from, to, z from, to, clumps per side]
+  for (const [xa, xb, za, zb, n] of zones) for (const sd of [-1, 1]) for (let k = 0; k < n; k++) {
+    const cx = sd * rand(xa, xb), cz = rand(zb, za), pineClump = Math.random() < 0.4;
+    for (let i = 0, m = randi(5, 10); i < m; i++) { const x = cx + rand(-7, 7), z = cz + rand(-8, 8); if (Math.abs(x) < xa || Math.abs(x) > xb + 4 || !ok(x, z)) continue; placed.push([x, z]);
+      if (pineClump || Math.random() < 0.15) pine(x, z, rand(1.2, 1.8), false); else bareTree(x, z, rand(1.2, 1.7)); } // tall enough to show over the noise walls
+    for (let i = 0; i < 4; i++) { const x = cx + rand(-7, 7), z = cz + rand(-8, 8); if (Math.abs(x) > xa && ok(x, z)) shrub(x, z, rand(0.7, 1.2), false); } }
 }
 
 /* 신월IC → 국회대로 → 영등포 → 샛강 → 여의도 */
