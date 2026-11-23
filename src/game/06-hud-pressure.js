@@ -28,7 +28,7 @@ function addKillFeed(text, head) {
   while (hud.kf.children.length > 5) hud.kf.lastChild.remove(); setTimeout(() => d.classList.add('out'), 3500); setTimeout(() => d.remove(), 4200);
 }
 function onEnemyKilledByPlayer(a, head) {
-  G.stats.kills++; if (head) G.stats.heads++; squadOnKill(head);
+  G.stats.kills++; if (head) G.stats.heads++; if (G.gunHit != null) squadOnKill(head, G.gunHit); // air strikes, naval fire and scripted kills earn no praise
   addKillFeed((head ? '헤드샷  ' : '') + (a.kind === 'heavy' ? '적 기관총 사수 사살' : a.kind === 'officer' ? '적 장교 사살' : '적 소총수 사살'), head);
 }
 function giveAmmoPickup() {

@@ -2,28 +2,41 @@
 const CLOCK = (ang) => { let h = Math.round(ang / (Math.PI / 6)); h = ((h % 12) + 12) % 12; return h === 0 ? 12 : h; };
 function playerIdentity() { const m = G.mission || {}; return { name: m.whoShort || '서한준', rank: rankOf(m.who || '') }; }
 /* ---------------- the squad looks after the rookie: praise, worry, cover fire, a spare magazine ---------------- */
+/* praise is rare and earned: a run of kills with our own rifle, a long headshot, armour taken out with our own rocket. Short and in
+   character — the platoon leader and the old sergeant keep it terse, the rookie's peers are the ones who shout about it */
 const VOICE = {
-  강태현: { praise: ['좋아.', '잘 쐈다, 막내.', '그렇지. 침착하게.'], head: ['…한 방이군. 좋다.'], multi: ['혼자 다 잡을 셈이냐. 잘했다.'], worry: ['서한준! 머리 숙여!', '막내 맞았다! 엄호해!'], ammo: ['막내, 탄창 받아라.'] },
-  한지운: { praise: ['나이스, 한준아!', '잘했다! 그대로 가!', '좋아, 막내!', '봤다! 잘 맞혔다!'], head: ['머리! 한 방이다!', '헤드샷! 잘했다, 한준아!'], multi: ['혼자 다 잡네! 좋아!', '한준이 오늘 날아다닌다!'], worry: ['한준아! 괜찮냐! 엄폐해!', '막내 맞았다! 내가 엄호한다, 빠져!', '서한준! 내 뒤로 붙어!'], ammo: ['한준아, 탄창 받아!', '막내, 탄 떨어졌지? 이거 써!'] },
-  리선우: { praise: ['오, 한준이 제법이구나!', '잘 맞혔다이!', '하나 더 잡으라우!'], head: ['머리 맞췄다! 저 녀석 보라우!'], multi: ['야, 우리 몫도 좀 남기라우!'], worry: ['한준아! 뒤로 빠지라우, 내레 막갔어!', '한준이 맞았다! 엄호하라우!'], ammo: ['한준아, 받으라우! 아껴 쓰라!'] },
-  윤하린: { praise: ['명중 확인.', '적 하나 감소. 잘했어.', '확인했어, 한준아.'], head: ['헤드샷 확인. 침착하네.'], multi: ['세 명 연속 확인. 잘하고 있어.'], worry: ['서한준, 엄폐부터! 출혈 확인해!', '한준아! 고개 숙여!'], ammo: ['탄창 하나 던진다, 받아!'] },
-  박도현: { praise: ['좋다, 서한준!', '그렇게 하는 거다!'], head: ['명사수 났네!'], multi: ['3분대 막내 대단하다!'], worry: ['서한준 맞았다! 엄호 사격!', '서한준! 엄폐해라!'], ammo: ['서한준, 탄 받아라!'] },
+  강태현: { praise: ['쓸 만하군.', '그 정도면 됐다. 다음.'], head: ['…한 발에 끝냈군.'], multi: ['막내, 숨 고르고 쏴라. 잘하고 있다.'], armor: ['잘 잡았다. 장전하고 엎드려.'], worry: ['서한준! 머리 숙여!', '막내 맞았다! 엄호해!'], ammo: ['막내, 탄창 받아라.'] },
+  한지운: { praise: ['좋아, 한준아! 계속 쏴!', '봤다! 그대로 가!'], head: ['저 거리에서 머리를? 미쳤네!', '한 방이다! 잘했다!'], multi: ['한준이 오늘 날아다닌다!', '다 쓸어버리네! 좋아!'], armor: ['장갑차 잡았다! 한준이가 잡았어!', '그렇지! 불타는 거 봐라!'], worry: ['한준아! 괜찮냐! 엄폐해!', '막내 맞았다! 내가 엄호한다, 빠져!', '서한준! 내 뒤로 붙어!'], ammo: ['한준아, 탄창 받아!', '막내, 탄 떨어졌지? 이거 써!'] },
+  리선우: { praise: ['제법이구나, 한준이!', '잘 맞혔다이!'], head: ['저 멀리 머리를 맞췄다! 보라우!'], multi: ['야, 우리 몫도 좀 남기라우!'], armor: ['날래 잡았구나! 잘했다우!'], worry: ['한준아! 뒤로 빠지라우, 내레 막갔어!', '한준이 맞았다! 엄호하라우!'], ammo: ['한준아, 받으라우! 아껴 쓰라!'] },
+  윤하린: { praise: ['명중 확인. 잘했어.'], head: ['원거리 헤드샷 확인. 침착하네.'], multi: ['다섯 명 연속 확인. 좋아.'], armor: ['격파 확인. 직격이야.'], worry: ['서한준, 엄폐부터! 출혈 확인해!', '한준아! 고개 숙여!'], ammo: ['탄창 하나 던진다, 받아!'] },
+  박도현: { praise: ['좋다. 계속 가.'], head: ['좋은 사격이다.'], multi: ['서한준, 잘했다. 위치 바꿔라!'], armor: ['좋다! 다음 표적!'], worry: ['서한준 맞았다! 엄호 사격!', '서한준! 엄폐해라!'], ammo: ['서한준, 탄 받아라!'] },
 };
+const PRAISE_KINDS = ['praise', 'head', 'multi', 'armor'];
 const voiceOf = (a) => VOICE[Object.keys(VOICE).find((k) => a.name && a.name.startsWith(k))];
 function nearSquad(r) { const me = (G.mission || {}).whoShort; return G.actors.filter((a) => a.alive && a.team === 'ally' && !a.passive && a.name && voiceOf(a) && !a.name.startsWith(me || '-') && a.pos.distanceTo(P.pos) < r).sort((a, b) => (a.name.startsWith('한지운') ? -1 : 0) - (b.name.startsWith('한지운') ? -1 : 0) || a.pos.distanceTo(P.pos) - b.pos.distanceTo(P.pos)); }
 function squadReact(kind) {
   if (G.cut || !P.alive || G.noChatter || G.mission?.id === 'p') return false;
   if (G.time - (G.lastSubT ?? -99) < 2.2) return false;
   const sq = nearSquad(kind === 'worry' ? 35 : 28); if (!sq.length) return false;
-  const a = kind === 'worry' || kind === 'ammo' ? sq[0] : pick(sq.slice(0, 3)); const v = voiceOf(a); if (!v || !v[kind]) return false;
-  subtitle(a.name, pick(v[kind]), 2); G.chatT = Math.max(G.chatT || 0, 4); return a;
+  const praise = PRAISE_KINDS.includes(kind);
+  if (praise) { if (G.saidTok !== G.token) { G.saidTok = G.token; G.said = new Set(); G.praiseT = -99; } } // per mission: no line twice
+  // praise comes mostly from the rookie's peers; the lieutenant only now and then
+  const pool = kind === 'worry' || kind === 'ammo' ? [sq[0]] : sq.slice(0, 4).flatMap((a) => (/^(한지운|리선우)/.test(a.name) ? [a, a, a] : /^박도현/.test(a.name) ? [a] : [a, a]));
+  for (let tries = 0; tries < 6; tries++) { const a = pick(pool), v = voiceOf(a); if (!v || !v[kind]) continue;
+    const lines = praise ? v[kind].filter((l) => !G.said.has(l)) : v[kind]; if (!lines.length) continue;
+    const line = pick(lines); if (praise) G.said.add(line); subtitle(a.name, line, 2); G.chatT = Math.max(G.chatT || 0, 8); return a; }
+  return false;
 }
-function squadOnKill(head) {
-  const t = G.time; G.killTimes = (G.killTimes || []).filter((k) => t - k < 4); G.killTimes.push(t);
-  if (G.killTimes.length >= 3 && t - (G.multiT ?? -99) > 14) { if (squadReact('multi')) { G.multiT = t; G.praiseT = t; } return; }
-  if (head && t - (G.praiseT ?? -99) > 9 && Math.random() < 0.6) { if (squadReact('head')) G.praiseT = t; return; }
-  if (t - (G.praiseT ?? -99) > 16 && Math.random() < 0.35) { if (squadReact('praise')) G.praiseT = t; }
+/* our own rifle kills only (G.gunHit = range). praise at most once a minute: 5 kills inside 10 s, a headshot past 60 m, or a fast run of 3 */
+function squadOnKill(head, range = 0) {
+  const t = G.time; G.killTimes = (G.killTimes || []).filter((k) => t - k < 10); G.killTimes.push(t);
+  const since = t - (G.praiseT ?? -99); if (G.saidTok === G.token && G.said.size >= 4) return; // four at most in a whole mission
+  if (G.killTimes.length >= 5 && since > 90) { if (squadReact('multi')) { G.praiseT = t; G.killTimes = []; } return; }
+  if (head && range > 60 && since > 60) { if (squadReact('head')) G.praiseT = t; return; }
+  if (G.killTimes.filter((k) => t - k < 6).length >= 3 && since > 90 && Math.random() < 0.5) { if (squadReact('praise')) G.praiseT = t; }
 }
+/* armour or a helicopter brought down with our own rocket */
+function squadOnArmorKill(v) { const t = G.time; if (t - (G.praiseT ?? -99) < 30 || (G.saidTok === G.token && G.said.size >= 4)) return; setGameTimeout(() => { if (squadReact('armor')) G.praiseT = G.time; }, 2.6); } // after the radio's own 'destroyed' call
 function squadCareTick(dt) {
   if (G.mode !== 'play' || G.cut || !P.alive || G.mission?.id === 'p' || G.mission?.id === 'ep') return;
   // hurt badly: someone shouts for him and lays down covering fire on whoever is shooting at him
@@ -59,7 +72,7 @@ function chatterTick(dt) {
     else if (r < 0.8) line = sup ? pick(['밀어붙여라!', '엄호한다, 이동해라!', '사격 유지해라!', '물러서지 마라!']) : pick(['엄호하겠습니다!', '제압 사격합니다!', '이동합니다!']);
     else if (foes.length > 8) line = pick(['적이 너무 많다!', '끝이 없습니다!', '계속 몰려온다!']);
   } else if (Math.random() < 0.25 && !(G.mission && G.mission.loadout && G.mission.loadout.noFire) && aliveEnemies().some((e) => e.pos.distanceTo(P.pos) < 160)) line = sup ? pick(['주변 경계해라.', '탄약 확인해라.', '정신 바짝 차려라.']) : pick(['이상 없습니다.', '주변 깨끗합니다.']);
-  if (line) { subtitle(sp.name, line, 1.9); G.chatT = rand(6, 10); } else G.chatT = rand(3, 5);
+  if (line) { subtitle(sp.name, line, 1.9); G.chatT = rand(15, 25); } else G.chatT = rand(6, 9); // room for the radio and the story lines
 }
 function floatText(pos, text) {
   const box = $('shouts'); if (!box) return; const sc = projectToScreen(pos); if (sc.behind) return;

@@ -142,7 +142,8 @@ class Vehicle {
     if (this.m.turret && (this.type === 'tank' || this.type === 'bmp')) { this.m.turret.position.y += 0.4; this.m.turret.rotation.z = rand(-0.3, 0.3); this.m.turret.rotation.y += rand(-0.5, 0.5); }
     if (this.snd) this.snd.stop();
     if (this.air) { this.falling = true; this.vel.set(rand(-4, 4), -2, rand(-4, 4)); }
-    if (src === PT || src === 'player') { addKillFeed(this.type === 'tank' ? '전차 격파' : this.type === 'apc' || this.type === 'bmp' ? '장갑차 격파' : this.type === 'drone' ? '드론 격추' : this.air ? '헬기 격추' : '차량 파괴'); G.stats.kills++; }
+    if (src === PT || src === 'player') { addKillFeed(this.type === 'tank' ? '전차 격파' : this.type === 'apc' || this.type === 'bmp' ? '장갑차 격파' : this.type === 'drone' ? '드론 격추' : this.air ? '헬기 격추' : '차량 파괴'); G.stats.kills++;
+      const ls = G.lastShot; if (ls && G.time - ls.t < 8 && ['rpg', 'atgm', 'sam'].includes(ls.id) && this.type !== 'drone' && this.type !== 'truck') squadOnArmorKill(this); } // our own rocket, not an air strike
     if (this.o.onDeath) this.o.onDeath(this);
   }
   remove() { G.world.remove(this.m.root); if (this.col) { const i = G.dyn.indexOf(this.col); if (i >= 0) G.dyn.splice(i, 1); } if (this.snd) this.snd.stop(); const i = G.vehicles.indexOf(this); if (i >= 0) G.vehicles.splice(i, 1); }

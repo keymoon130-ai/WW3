@@ -89,7 +89,7 @@ function updateWeapon(dt) {
 }
 const _d = v3(), _o = v3(), _lh = v3(), _lh2 = v3(), _lh3 = v3(), _lh4 = v3();
 function fireWeapon(w, st) {
-  st.mag--; if (w.infinite) st.mag = w.mag; P.fireCd = 60 / w.rpm; G.stats.shots++;
+  st.mag--; if (w.infinite) st.mag = w.mag; P.fireCd = 60 / w.rpm; G.stats.shots++; G.lastShot = { id: curId(), t: G.time }; // what we last fired, so the squad knows a rocket kill was ours
   camera.getWorldDirection(_d);
   const mz = VM.muzzle.getWorldPosition(v3()); // in vm space; we need world muzzle approx
   const worldMz = camera.position.clone().addScaledVector(_d, 0.9).add(_r.clone().multiplyScalar(0.12 * (1 - P.ads))).add(v3(0, -0.12 * (1 - P.ads), 0));
@@ -195,7 +195,7 @@ function throwGrenade() { if (P.nades <= 0 || P.throwT > 0 || P.reloadT > 0 || P
 function melee() {
   if (P.meleeT > 0 || curW().mounted) return; P.meleeT = 0.45; SFX.melee(); P.reloadT = 0;
   camera.getWorldDirection(_d);
-  for (const a of G.actors) { if (!a.alive || a.team !== 'enemy') continue; const dv = v3().subVectors(a.chest(v3()), P.eyePos); const d = dv.length(); if (d < 2.3 && dv.normalize().dot(_d) > 0.55) { a.hurt(999, PT, false); FX.blood(a.chest(v3())); showHit(true); break; } }
+  for (const a of G.actors) { if (!a.alive || a.team !== 'enemy') continue; const dv = v3().subVectors(a.chest(v3()), P.eyePos); const d = dv.length(); if (d < 2.3 && dv.normalize().dot(_d) > 0.55) { G.gunHit = 1; a.hurt(999, PT, false); G.gunHit = null; FX.blood(a.chest(v3())); showHit(true); break; } }
 }
 function interact() {
   const it = G.focusIt; if (!it) return;
@@ -225,7 +225,7 @@ function hitscan(o, d, maxT, dmg, headMul, src) {
   if (src === PT) for (const a of G.actors) { if (!a.alive || a.team !== 'enemy' || a === actor) continue; const c = a.chest(v3()); const toA = c.sub(o); const along = toA.dot(d); if (along < 0 || along > best + 1) continue; if (toA.addScaledVector(d, -along).length() < 2.2) a.supp = Math.min(2, (a.supp || 0) + 0.45); }
   if (actor) {
     G.stats.hits++;
-    actor.hurt(dmg * (head ? headMul : 1) * (best > 120 ? 0.8 : 1), src, head);
+    G.gunHit = src === PT ? best : null; actor.hurt(dmg * (head ? headMul : 1) * (best > 120 ? 0.8 : 1), src, head); G.gunHit = null; // a kill with our own rounds (and at what range): the only kind the squad remarks on
     FX.blood(point); showHit(!actor.alive, head && !actor.alive); if (head && !actor.alive) SFX.head(); else SFX.hit();
   } else if (what && what.ref) {
     const v = what.ref; if (v.isVehicle) { v.hurt(dmg, G.hmgShot ? 'hmg' : 'bullet', src); FX.sparks(point, 5); SFX.metal(point); if (v.type === 'truck' || v.air) showHit(false); }
