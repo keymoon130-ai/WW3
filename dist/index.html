@@ -7271,7 +7271,7 @@ addEventListener('keydown', (e) => {
   if (e.repeat && !['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) { K[e.code] = true; return; }
   K[e.code] = true;
   if (G.mode !== 'play') { if (e.code === 'Escape' && G.mode === 'menu') menuBack(); return; }
-  if (e.code === 'Escape') { if (G.paused) resume(); else if (!isLocked()) pauseGame(); return; }
+  if (e.code === 'Escape') { if (G.inVideo) { if (G.cut && !G.ffwd) startFfwd(); return; } /* Esc on the opening film skips it */ if (G.paused) resume(); else if (!isLocked()) pauseGame(); return; }
   if (G.paused || !P.alive) return;
   if (e.code === 'Tab' || e.code === 'Space') e.preventDefault();
   if (G.cut) return;
@@ -7302,7 +7302,7 @@ addEventListener('mousemove', (e) => { if (G.mode !== 'play' || G.paused) return
 addEventListener('wheel', (e) => { if (G.mode !== 'play' || G.paused || P.frozen || P.weapons.length < 2) return; switchTo((P.cur + (e.deltaY > 0 ? 1 : P.weapons.length - 1)) % P.weapons.length); }, { passive: true });
 document.addEventListener('pointerlockchange', () => {
   const locked = isLocked(); document.body.classList.toggle('locked', locked);
-  if (!locked && G.mode === 'play' && !G.paused && P.alive) pauseGame();
+  if (!locked && G.mode === 'play' && !G.paused && P.alive) pauseGame(); // (not during the opening film: pauseGame declines, the film plays on)
 });
 function updateLockPrompt() { $('clickLock').hidden = !(lockSupported && G.mode === 'play' && !G.paused && P.alive && !isLocked() && !G.testMode); }
 
@@ -8391,7 +8391,7 @@ function renderIntel() {
   if (foes.length) html += `<div><h3>적</h3><div class="in-people">${foes.join('')}</div></div>`;
   $('intelBody').innerHTML = html;
 }
-function pauseGame() { if (G.mode !== 'play' || G.paused || G.inCredits) return; G.paused = true; showScreen('pause'); $('pauseTitle').textContent = G.mission ? G.mission.title : ''; MS.l = MS.r = false; }
+function pauseGame() { if (G.mode !== 'play' || G.paused || G.inCredits || G.inVideo) return; /* never under a film: the pause screen would sit hidden beneath it and the game would hang on black */ G.paused = true; showScreen('pause'); $('pauseTitle').textContent = G.mission ? G.mission.title : ''; MS.l = MS.r = false; }
 function resume() { lockPointer(); hideScreens(); G.paused = false; }
 
 /* ---------------- menus ---------------- */
@@ -8614,11 +8614,11 @@ async function runVideo(S, file, o = {}) {
   v.style.cssText = 'width:100%;height:100%;object-fit:contain;opacity:0'; el.appendChild(v); document.body.appendChild(el);
   const vol = () => (typeof SET !== 'undefined' && SET.vol != null ? Math.min(1, SET.vol) : 1);
   if (AU.master) AU.master.gain.setTargetAtTime(0, AU.ctx.currentTime, 0.2); // the battle outside goes quiet under the broadcast
-  let done = false, raf = 0;
+  let done = false, raf = 0; G.inVideo = true;
   const tick = () => { if (done) return; raf = requestAnimationFrame(tick); if (G.ffwd) { v.pause(); return; }
     const left = (v.duration || 1e9) - v.currentTime, k = clamp(left / fadeT, 0, 1);
     if (v.currentTime > 0) { v.style.opacity = k; v.volume = vol() * k; } };
-  await S.cut(async () => {
+  try { await S.cut(async () => {
     await S.wait(black0);
     if (!G.ffwd) {
       v.volume = vol(); v.style.opacity = 1; // cut straight in, no fade
@@ -8631,8 +8631,7 @@ async function runVideo(S, file, o = {}) {
       v.style.opacity = 0;
     }
     await S.wait(hold);
-  });
-  done = true; cancelAnimationFrame(raf); v.pause(); v.removeAttribute('src'); v.load(); el.remove();
+  }); } finally { G.inVideo = false; done = true; cancelAnimationFrame(raf); v.pause(); v.removeAttribute('src'); v.load(); el.remove(); } // the film's black screen always goes, even when the mission is left halfway through it
   if (AU.master && !G.ffwd) AU.master.gain.setTargetAtTime(SET.vol, AU.ctx.currentTime, 0.4);
 }
 const SKIP_HOLD = 2;

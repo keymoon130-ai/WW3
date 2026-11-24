@@ -72,5 +72,5 @@ function renderIntel() {
   if (foes.length) html += `<div><h3>적</h3><div class="in-people">${foes.join('')}</div></div>`;
   $('intelBody').innerHTML = html;
 }
-function pauseGame() { if (G.mode !== 'play' || G.paused || G.inCredits) return; G.paused = true; showScreen('pause'); $('pauseTitle').textContent = G.mission ? G.mission.title : ''; MS.l = MS.r = false; }
+function pauseGame() { if (G.mode !== 'play' || G.paused || G.inCredits || G.inVideo) return; /* never under a film: the pause screen would sit hidden beneath it and the game would hang on black */ G.paused = true; showScreen('pause'); $('pauseTitle').textContent = G.mission ? G.mission.title : ''; MS.l = MS.r = false; }
 function resume() { lockPointer(); hideScreens(); G.paused = false; }

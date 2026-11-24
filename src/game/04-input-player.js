@@ -11,7 +11,7 @@ addEventListener('keydown', (e) => {
   if (e.repeat && !['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) { K[e.code] = true; return; }
   K[e.code] = true;
   if (G.mode !== 'play') { if (e.code === 'Escape' && G.mode === 'menu') menuBack(); return; }
-  if (e.code === 'Escape') { if (G.paused) resume(); else if (!isLocked()) pauseGame(); return; }
+  if (e.code === 'Escape') { if (G.inVideo) { if (G.cut && !G.ffwd) startFfwd(); return; } /* Esc on the opening film skips it */ if (G.paused) resume(); else if (!isLocked()) pauseGame(); return; }
   if (G.paused || !P.alive) return;
   if (e.code === 'Tab' || e.code === 'Space') e.preventDefault();
   if (G.cut) return;
@@ -42,7 +42,7 @@ addEventListener('mousemove', (e) => { if (G.mode !== 'play' || G.paused) return
 addEventListener('wheel', (e) => { if (G.mode !== 'play' || G.paused || P.frozen || P.weapons.length < 2) return; switchTo((P.cur + (e.deltaY > 0 ? 1 : P.weapons.length - 1)) % P.weapons.length); }, { passive: true });
 document.addEventListener('pointerlockchange', () => {
   const locked = isLocked(); document.body.classList.toggle('locked', locked);
-  if (!locked && G.mode === 'play' && !G.paused && P.alive) pauseGame();
+  if (!locked && G.mode === 'play' && !G.paused && P.alive) pauseGame(); // (not during the opening film: pauseGame declines, the film plays on)
 });
 function updateLockPrompt() { $('clickLock').hidden = !(lockSupported && G.mode === 'play' && !G.paused && P.alive && !isLocked() && !G.testMode); }
 

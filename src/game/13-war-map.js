@@ -58,11 +58,11 @@ async function runVideo(S, file, o = {}) {
   v.style.cssText = 'width:100%;height:100%;object-fit:contain;opacity:0'; el.appendChild(v); document.body.appendChild(el);
   const vol = () => (typeof SET !== 'undefined' && SET.vol != null ? Math.min(1, SET.vol) : 1);
   if (AU.master) AU.master.gain.setTargetAtTime(0, AU.ctx.currentTime, 0.2); // the battle outside goes quiet under the broadcast
-  let done = false, raf = 0;
+  let done = false, raf = 0; G.inVideo = true;
   const tick = () => { if (done) return; raf = requestAnimationFrame(tick); if (G.ffwd) { v.pause(); return; }
     const left = (v.duration || 1e9) - v.currentTime, k = clamp(left / fadeT, 0, 1);
     if (v.currentTime > 0) { v.style.opacity = k; v.volume = vol() * k; } };
-  await S.cut(async () => {
+  try { await S.cut(async () => {
     await S.wait(black0);
     if (!G.ffwd) {
       v.volume = vol(); v.style.opacity = 1; // cut straight in, no fade
@@ -75,8 +75,7 @@ async function runVideo(S, file, o = {}) {
       v.style.opacity = 0;
     }
     await S.wait(hold);
-  });
-  done = true; cancelAnimationFrame(raf); v.pause(); v.removeAttribute('src'); v.load(); el.remove();
+  }); } finally { G.inVideo = false; done = true; cancelAnimationFrame(raf); v.pause(); v.removeAttribute('src'); v.load(); el.remove(); } // the film's black screen always goes, even when the mission is left halfway through it
   if (AU.master && !G.ffwd) AU.master.gain.setTargetAtTime(SET.vol, AU.ctx.currentTime, 0.4);
 }
 const SKIP_HOLD = 2;
