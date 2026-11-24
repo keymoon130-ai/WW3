@@ -3,42 +3,21 @@ const AU = { ctx: null };
 function initAudio() {
   if (AU.ctx) { if (AU.ctx.state !== 'running') AU.ctx.resume(); return; }
   const c = new (window.AudioContext || window.webkitAudioContext)(); AU.ctx = c;
-  /* output chain: everything → a brick-wall limiter → master. The effects bus gets weight before that: a low shelf for chest-thump,
-     gentle tape-style saturation for density, then a punchy bus compressor (slow-ish attack lets each transient through, fast release) */
   AU.master = c.createGain(); AU.master.gain.value = SET.vol; AU.master.connect(c.destination);
-  const lim = c.createDynamicsCompressor(); lim.threshold.value = -2.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12; lim.connect(AU.master);
-  const comp = c.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 2.5; comp.attack.value = 0.006; comp.release.value = 0.16; comp.connect(lim);
-  const sat = c.createWaveShaper(); sat.curve = auCurve(0.5); sat.oversample = '2x'; sat.connect(comp);
-  const shelf = c.createBiquadFilter(); shelf.type = 'lowshelf'; shelf.frequency.value = 110; shelf.gain.value = 3.5; shelf.connect(sat);
-  // the muffle: near a blast the whole world dulls for a moment (the ear shutting) and comes back
-  AU.muffle = c.createBiquadFilter(); AU.muffle.type = 'lowpass'; AU.muffle.frequency.value = 20000; AU.muffle.Q.value = 0.5;
-  AU.trim = c.createGain(); AU.trim.gain.value = 0.075; AU.muffle.connect(AU.trim); AU.trim.connect(shelf); // the one level for everything heard in the world (dry, reverb, echo, grit) — about where the old mix sat, minus its clipping
+  const comp = c.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 6; comp.connect(AU.master);
   AU.out = comp;
-  AU.sfx = c.createGain(); AU.sfx.gain.value = 1; AU.sfx.connect(AU.muffle); // the weight is in the layers, not in sheer level
-  AU.music = c.createGain(); AU.music.gain.value = SET.music * 0.5; AU.duck = c.createGain(); AU.music.connect(AU.duck); AU.duck.connect(lim); // the score ducks under big hits
-  // grit: a hard-driven bus for the roar inside explosions and cannon fire
-  AU.grit = c.createGain(); AU.grit.gain.value = 0.3; const gd = c.createWaveShaper(); gd.curve = auCurve(14); const gl = c.createBiquadFilter(); gl.type = 'lowpass'; gl.frequency.value = 2400; AU.grit.connect(gd); gd.connect(gl); gl.connect(AU.muffle);
-  // reverb: a city of hard walls — a few early reflections, then a long diffuse tail, decorrelated left and right
-  const len = Math.floor(c.sampleRate * 2.8), ir = c.createBuffer(2, len, c.sampleRate);
-  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch);
-    for (let i = 0; i < len; i++) { const t = i / c.sampleRate; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6) * (t < 0.02 ? t / 0.02 : 1) * 0.8; }
-    for (const [ms, a] of [[11, 0.7], [23, 0.55], [37, 0.5], [58, 0.4], [83, 0.32], [117, 0.25]]) { const k = Math.floor((ms + (ch ? 3.7 : 0)) / 1000 * c.sampleRate); for (let j = 0; j < 90; j++) d[k + j] += (Math.random() * 2 - 1) * a * (1 - j / 90); } }
-  AU.rev = c.createConvolver(); AU.rev.buffer = ir; AU.revIn = c.createGain(); AU.revIn.gain.value = 0.42; AU.revIn.connect(AU.rev); const rl = c.createBiquadFilter(); rl.type = 'lowpass'; rl.frequency.value = 5500; AU.rev.connect(rl); rl.connect(AU.muffle);
-  // slap-back: the crack of a shot coming back off the buildings across the street, twice, darker each time
-  AU.echo = c.createGain(); AU.echo.gain.value = 0.3; const dl = c.createDelay(1.0); dl.delayTime.value = 0.21; const fb = c.createGain(); fb.gain.value = 0.32; const el = c.createBiquadFilter(); el.type = 'lowpass'; el.frequency.value = 2200;
-  AU.echo.connect(dl); dl.connect(el); el.connect(fb); fb.connect(dl); const eo = c.createStereoPanner ? c.createStereoPanner() : c.createGain(); if (eo.pan) eo.pan.value = -0.35; el.connect(eo); eo.connect(AU.muffle);
+  AU.sfx = c.createGain(); AU.sfx.connect(comp);
+  AU.music = c.createGain(); AU.music.gain.value = SET.music * 0.5; AU.music.connect(AU.master);
+  // reverb
+  const len = c.sampleRate * 2.2, ir = c.createBuffer(2, len, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+  AU.rev = c.createConvolver(); AU.rev.buffer = ir; AU.revIn = c.createGain(); AU.revIn.gain.value = 0.35; AU.revIn.connect(AU.rev); AU.rev.connect(comp);
   // noise
   const nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate); const nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1; AU.noise = nb;
   const bb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate); const bd = bb.getChannelData(0); let last = 0; for (let i = 0; i < bd.length; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; bd[i] = last * 3.5; } AU.brown = bb;
   AU.voices = 0;
   startAmbience();
 }
-/* soft-clip transfer curve: k = drive */
-function auCurve(k) { const n = 2048, cv = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; cv[i] = (1 + k) * x / (1 + k * Math.abs(x)); } return cv; }
-/* a near blast: the world goes dull and the score dips, then both come back */
-function auShock(amount = 1) { const c = AU.ctx; if (!c || !AU.muffle) return; const t = c.currentTime;
-  const a = Math.min(1.3, amount); AU.muffle.frequency.cancelScheduledValues(t); AU.muffle.frequency.setValueAtTime(Math.max(450, 20000 * Math.pow(0.03, a)), t + 0.03); AU.muffle.frequency.setTargetAtTime(20000, t + 0.3 + a * 0.7, 0.9);
-  AU.duck.gain.cancelScheduledValues(t); AU.duck.gain.setTargetAtTime(1 - 0.75 * Math.min(1, a), t, 0.03); AU.duck.gain.setTargetAtTime(1, t + 0.6 + a, 1.2); } // a graze barely dulls things, a shell next to you shuts the ears
 function setVolumes() { if (!AU.ctx) return; AU.master.gain.value = SET.vol; AU.music.gain.value = SET.music * 0.5; }
 const _ad = v3();
 /* spatial params from world pos */
@@ -49,28 +28,28 @@ function spatial(pos, ref = 18) {
   const pan = d > 0.5 ? clamp((_ad.x * rx + _ad.z * rz) / d, -1, 1) * 0.85 : 0;
   return { g: 1 / (1 + Math.pow(d / ref, 1.4)), pan, lp: clamp(18000 / (1 + d / 40), 500, 18000), d };
 }
-function voiceOut(g, pan, wet = 0.3, dest, echo = 0) {
+function voiceOut(g, pan, wet = 0.3, dest) {
   const c = AU.ctx; const p = c.createStereoPanner ? c.createStereoPanner() : null;
-  if (p) { p.pan.value = pan; g.connect(p); p.connect(dest || AU.sfx); if (wet > 0) { const w = c.createGain(); w.gain.value = wet; p.connect(w); w.connect(AU.revIn); } if (echo > 0 && AU.echo) { const e = c.createGain(); e.gain.value = echo; p.connect(e); e.connect(AU.echo); } }
+  if (p) { p.pan.value = pan; g.connect(p); p.connect(dest || AU.sfx); if (wet > 0) { const w = c.createGain(); w.gain.value = wet; p.connect(w); w.connect(AU.revIn); } }
   else { g.connect(dest || AU.sfx); }
 }
-function noiseBurst({ t = 0, dur = 0.2, f = 1000, f2 = null, type = 'lowpass', q = 0.7, gain = 1, att = 0.002, pan = 0, wet = 0.3, brown = false, rate = 1, dest, echo = 0 }) {
-  const c = AU.ctx; if (!c || AU.voices > (AU.prio ? 200 : 110)) return; const t0 = c.currentTime + t;
+function noiseBurst({ t = 0, dur = 0.2, f = 1000, f2 = null, type = 'lowpass', q = 0.7, gain = 1, att = 0.002, pan = 0, wet = 0.3, brown = false, rate = 1 }) {
+  const c = AU.ctx; if (!c || AU.voices > 48) return; const t0 = c.currentTime + t;
   const s = c.createBufferSource(); s.buffer = brown ? AU.brown : AU.noise; s.playbackRate.value = rate;
   const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t0); fl.Q.value = q; if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
   const g = c.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(gain, t0 + att); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  s.connect(fl); fl.connect(g); voiceOut(g, pan, wet, dest, echo);
+  s.connect(fl); fl.connect(g); voiceOut(g, pan, wet);
   s.start(t0, rand(0, 1)); s.stop(t0 + dur + 0.05); AU.voices++; s.onended = () => AU.voices--;
 }
-function tone({ t = 0, dur = 0.2, f = 440, f2 = null, type = 'sine', gain = 0.3, att = 0.003, pan = 0, wet = 0.15, dest, fdur }) {
-  const c = AU.ctx; if (!c || AU.voices > (AU.prio ? 200 : 110)) return; const t0 = c.currentTime + t;
-  const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + (fdur || dur));
+function tone({ t = 0, dur = 0.2, f = 440, f2 = null, type = 'sine', gain = 0.3, att = 0.003, pan = 0, wet = 0.15, dest }) {
+  const c = AU.ctx; if (!c || AU.voices > 48) return; const t0 = c.currentTime + t;
+  const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
   const g = c.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(gain, t0 + att); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g); voiceOut(g, pan, wet, dest); o.start(t0); o.stop(t0 + dur + 0.05); AU.voices++; o.onended = () => AU.voices--;
 }
 /* a sweep whose loudness grows towards the end (incoming shells): osc or noise, frequency glide, swelling gain, cut off at the end */
 function swell({ t = 0, dur = 1.5, f = 1200, f2 = 300, type = 'sine', noise = false, q = 4, g0 = 0.005, g1 = 0.3, pan = 0, wet = 0.2 }) {
-  const c = AU.ctx; if (!c || AU.voices > (AU.prio ? 200 : 110)) return; const t0 = c.currentTime + t;
+  const c = AU.ctx; if (!c || AU.voices > 48) return; const t0 = c.currentTime + t;
   let src; if (noise) { src = c.createBufferSource(); src.buffer = AU.noise; src.loop = true; } else { src = c.createOscillator(); src.type = type; src.frequency.setValueAtTime(f, t0); src.frequency.exponentialRampToValueAtTime(f2, t0 + dur); }
   let node = src; if (noise) { const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q; bp.frequency.setValueAtTime(f, t0); bp.frequency.exponentialRampToValueAtTime(f2, t0 + dur); src.connect(bp); node = bp; }
   const g = c.createGain(); g.gain.setValueAtTime(g0, t0); g.gain.exponentialRampToValueAtTime(g1, t0 + dur * 0.97); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.04);
@@ -96,38 +75,10 @@ function jetVoice() {
   (AU.jets = AU.jets || []).push(voice); AU.jets = AU.jets.filter((v) => !v.dead);
   return voice;
 }
-/* one gunshot, built in layers: the supersonic crack, the bright body of the muzzle blast, the low thump in the chest, the
-   tail rolling off down the street, and the slap-back off the buildings. Far away the highs go first (sp.lp) and the tail stays */
-const GUN = {
-  rifle: { crack: 1.0, body: 0.9, bf: 1500, thump: 1.15, tf: 112, tail: 0.75, lf: 1400, echo: 0.32, wet: 0.35 },
-  enemy: { crack: 0.75, body: 0.8, bf: 1150, thump: 0.75, tf: 96, tail: 0.65, lf: 1100, echo: 0.42, wet: 0.55 },
-  sniper: { crack: 1.35, body: 1.0, bf: 1250, thump: 1.5, tf: 82, tail: 1.6, lf: 1000, echo: 0.6, wet: 0.7 },
-  pistol: { crack: 0.85, body: 0.85, bf: 1900, thump: 0.65, tf: 150, tail: 0.4, lf: 1600, echo: 0.28, wet: 0.35 },
-  mg: { crack: 0.95, body: 1.0, bf: 950, thump: 1.25, tf: 84, tail: 0.6, lf: 900, echo: 0.4, wet: 0.55 },
-  flak: { crack: 0.9, body: 0.9, bf: 1300, thump: 1.0, tf: 100, tail: 0.5, lf: 1000, echo: 0.35, wet: 0.45 },
-  // the heavy machine guns we fire ourselves (K6 / M2 .50 cal, K-M19, M60D): a slower, deeper, far bigger report than a rifle, with the action clanking
-  hmg: { crack: 1.1, body: 1.2, bf: 760, thump: 2.1, tf: 66, tail: 1.0, lf: 850, echo: 0.5, wet: 0.45, clank: 1, boost: 1.0 },
-  m134: { crack: 0.8, body: 0.9, bf: 900, thump: 1.3, tf: 78, tail: 0.5, lf: 900, echo: 0.35, wet: 0.35, boost: 0.8 },
-};
-function gunVoice(k, sp, delay, own) {
-  if (own) { AU.prio = true; try { gunLayers(k, sp, delay, own); } finally { AU.prio = false; } } else gunLayers(k, sp, delay, own);
-}
-function gunLayers(k, sp, delay, own) {
-  const g = sp.g * (own && k.boost ? k.boost : 1), lp = sp.lp, pan = sp.pan, far = clamp((sp.d - 40) / 160, 0, 1), jit = rand(0.94, 1.06);
-  if (k.clank) { noiseBurst({ t: delay + 0.012, dur: 0.025, f: 3200 * jit, type: 'bandpass', q: 3, gain: 0.35 * g, pan, wet: 0 }); tone({ t: delay + 0.01, dur: 0.05, f: 520 * jit, f2: 300, type: 'square', gain: 0.05 * g, wet: 0 }); }
-  if (lp > 2600) noiseBurst({ t: delay, dur: 0.028, f: 2800 * jit, type: 'highpass', gain: 0.45 * k.crack * g * (1 - far * 0.7), att: 0.0006, pan, wet: 0.12 });
-  noiseBurst({ t: delay, dur: 0.075, f: Math.min(k.bf * jit, lp), type: 'bandpass', q: 0.8, gain: k.body * g, att: 0.0012, pan, wet: k.wet * 0.6 });
-  noiseBurst({ t: delay, dur: 0.12, f: Math.min(6000, lp), type: 'lowpass', gain: 0.55 * k.body * g, att: 0.001, pan, wet: k.wet });
-  tone({ t: delay, dur: 0.2, fdur: 0.07, f: k.tf * jit, f2: k.tf * 0.38, type: 'sine', gain: k.thump * g * (own ? 1.15 : 1), att: 0.0015, pan, wet: 0.05 });
-  tone({ t: delay, dur: 0.06, f: k.tf * 2.1 * jit, f2: k.tf * 0.9, type: 'triangle', gain: 0.35 * k.thump * g, att: 0.001, pan, wet: 0 });
-  noiseBurst({ t: delay + 0.01, dur: 0.35 + k.tail * (0.6 + far), f: Math.min(k.lf, lp), f2: 260, type: 'lowpass', gain: (0.32 + far * 0.25) * g, att: 0.008, pan, wet: 0.85, echo: k.echo });
-}
 const SFX = {
   shot(kind, pos) {
     if (!AU.ctx) return; const sp = spatial(pos, 25); const delay = pos ? sp.d / 340 : 0; const g = sp.g;
     if (g < 0.01) return;
-    if (kind === 'm134' && !pos) { AU.mini = (AU.mini || 0) + 1; if (AU.mini % 3) { AU.prio = true; tone({ dur: 0.07, f: 82, f2: 50, gain: 0.9, wet: 0 }); noiseBurst({ dur: 0.05, f: 1200, type: 'bandpass', q: 0.9, gain: 0.7, wet: 0.2 }); AU.prio = false; return; } } // 50 rounds a second: the full report on every third, the buzz in between
-    if (GUN[kind]) { gunVoice(GUN[kind], sp, delay, !pos); return; }
     if (kind === 'rifle') { noiseBurst({ t: delay, dur: 0.16, f: Math.min(5200, sp.lp), type: 'lowpass', gain: 0.9 * g, pan: sp.pan, wet: pos ? 0.5 : 0.35 }); tone({ t: delay, dur: 0.12, f: 140, f2: 45, type: 'sine', gain: 0.8 * g, pan: sp.pan }); noiseBurst({ t: delay, dur: 0.45, f: 700, type: 'lowpass', gain: 0.25 * g, pan: sp.pan, att: 0.01, wet: 0.6 }); }
     else if (kind === 'enemy') { noiseBurst({ t: delay, dur: 0.14, f: Math.min(3200, sp.lp), type: 'lowpass', gain: 0.75 * g, pan: sp.pan, wet: 0.55 }); tone({ t: delay, dur: 0.1, f: 120, f2: 50, gain: 0.45 * g, pan: sp.pan }); }
     else if (kind === 'sniper') { noiseBurst({ t: delay, dur: 0.3, f: Math.min(4200, sp.lp), gain: 1.0 * g, pan: sp.pan, wet: 0.7 }); tone({ t: delay, dur: 0.25, f: 110, f2: 35, gain: 0.95 * g, pan: sp.pan }); noiseBurst({ t: delay + 0.05, dur: 1.4, f: 500, gain: 0.3 * g, att: 0.02, wet: 0.9 }); }
@@ -135,9 +86,8 @@ const SFX = {
     else if (kind === 'pistol') { noiseBurst({ t: delay, dur: 0.12, f: 4200, gain: 0.7 * g, pan: sp.pan }); tone({ t: delay, dur: 0.08, f: 200, f2: 60, gain: 0.5 * g }); }
     else if (kind === 'sd') { noiseBurst({ t: delay, dur: 0.07, f: 1800, type: 'bandpass', q: 1.2, gain: 0.35 * g, pan: sp.pan, wet: 0.05 }); tone({ t: delay, dur: 0.05, f: 90, f2: 40, gain: 0.25 * g }); }
     else if (kind === 'mg') { noiseBurst({ t: delay, dur: 0.12, f: Math.min(2400, sp.lp), gain: 0.85 * g, pan: sp.pan, wet: 0.6 }); tone({ t: delay, dur: 0.1, f: 90, f2: 40, gain: 0.6 * g, pan: sp.pan }); }
-    else if (kind === 'rpg') { noiseBurst({ t: delay, dur: 0.05, f: 2200, type: 'highpass', gain: 0.9 * g, pan: sp.pan, att: 0.001, wet: 0.2 }); noiseBurst({ t: delay, dur: 0.9, f: 1800, f2: 300, gain: 0.9 * g, pan: sp.pan, att: 0.01, wet: 0.5, echo: 0.4 }); tone({ t: delay, dur: 0.35, fdur: 0.12, f: 85, f2: 30, gain: 1.2 * g, pan: sp.pan }); noiseBurst({ t: delay, dur: 0.5, f: 700, f2: 150, gain: 0.6 * g, pan: sp.pan, dest: AU.grit }); }
-    else if (kind === 'cannon') { noiseBurst({ t: delay, dur: 0.05, f: Math.min(2500, sp.lp), type: 'highpass', gain: 1.1 * g, pan: sp.pan, att: 0.001, wet: 0.2 }); noiseBurst({ t: delay, dur: 1.2, f: Math.min(1400, sp.lp), f2: 120, gain: 1.2 * g, pan: sp.pan, att: 0.004, wet: 0.7, brown: false, echo: 0.6 }); tone({ t: delay, dur: 0.7, fdur: 0.25, f: 62, f2: 24, gain: 1.6 * g, pan: sp.pan }); noiseBurst({ t: delay, dur: 0.9, f: 800, f2: 120, gain: 0.9 * g, pan: sp.pan, dest: AU.grit });
-      if (sp.d < 25) auShock(0.35 * (1 - sp.d / 25));
+    else if (kind === 'rpg') { noiseBurst({ t: delay, dur: 0.9, f: 1800, f2: 300, gain: 0.9 * g, pan: sp.pan, att: 0.01, wet: 0.5 }); tone({ t: delay, dur: 0.25, f: 80, f2: 30, gain: 0.7 * g }); }
+    else if (kind === 'cannon') { noiseBurst({ t: delay, dur: 1.2, f: Math.min(1400, sp.lp), f2: 120, gain: 1.2 * g, pan: sp.pan, att: 0.004, wet: 0.7, brown: false }); tone({ t: delay, dur: 0.5, f: 60, f2: 25, gain: 1 * g, pan: sp.pan });
       const far = spatial(pos, 150); if (sp.d > 60) { noiseBurst({ t: delay, dur: 2.4, f: 240, f2: 70, type: 'lowpass', gain: 0.75 * far.g, pan: far.pan, att: 0.02, wet: 0.85 }); tone({ t: delay, dur: 1.3, f: 44, f2: 22, type: 'sine', gain: 0.65 * far.g, pan: far.pan }); } }
     else if (kind === 'rocket') { noiseBurst({ t: delay, dur: 0.95, f: 2600, f2: 520, type: 'bandpass', q: 0.9, gain: 0.85 * g, pan: sp.pan, att: 0.008, wet: 0.45 }); tone({ t: delay, dur: 0.16, f: 190, f2: 60, gain: 0.55 * g, pan: sp.pan }); noiseBurst({ t: delay + 0.05, dur: 0.6, f: 900, f2: 300, type: 'lowpass', gain: 0.4 * g, pan: sp.pan, wet: 0.3 }); }
     else if (kind === 'flak') { noiseBurst({ t: delay, dur: 0.1, f: 3000, gain: 0.7 * g, pan: sp.pan }); tone({ t: delay, dur: 0.09, f: 110, f2: 45, gain: 0.7 * g }); }
@@ -145,22 +95,20 @@ const SFX = {
   explosion(pos, big = 1, delayed = true) {
     if (!AU.ctx) return; const sp = spatial(pos, 60 * big); const delay = delayed ? sp.d / 340 : 0; const g = Math.min(1.6, sp.g * big);
     if (g < 0.01) return;
-    noiseBurst({ t: delay, dur: 1.6 + big * 0.6, f: Math.min(2600, sp.lp), f2: 90, gain: 1.2 * g, pan: sp.pan, att: 0.005, wet: 0.7, brown: false, echo: 0.45 });
+    noiseBurst({ t: delay, dur: 1.6 + big * 0.6, f: Math.min(2600, sp.lp), f2: 90, gain: 1.2 * g, pan: sp.pan, att: 0.005, wet: 0.7, brown: false });
     noiseBurst({ t: delay, dur: 2.4, f: 260, type: 'lowpass', gain: 1.1 * g, pan: sp.pan, att: 0.01, brown: true, wet: 0.5 });
-    noiseBurst({ t: delay, dur: 1.1 + big * 0.5, f: Math.min(1100, sp.lp), f2: 110, gain: 1.0 * g, pan: sp.pan, att: 0.004, dest: AU.grit, wet: 0.3 }); // the roar, driven hard
-    tone({ t: delay, dur: 0.8, fdur: 0.3, f: 62, f2: 22, gain: 1.5 * g, pan: sp.pan });
-    noiseBurst({ t: delay, dur: 0.09, f: 2500, type: 'highpass', gain: 0.5 * g, pan: sp.pan, att: 0.001, wet: 0.2 });             // the crack
-    tone({ t: delay, dur: 1.8 + big * 0.5, fdur: 0.7, f: 46, f2: 15, gain: 1.6 * g, pan: sp.pan, att: 0.004, wet: 0.2 });          // pressure in the chest
-    noiseBurst({ t: delay + 0.05, dur: 3.2 + big, f: 140, type: 'lowpass', gain: 0.8 * g, att: 0.08, brown: true, wet: 0.95, echo: 0.5 }); // rolling echo
-    if (sp.d < 28 * big) auShock(clamp(1 - sp.d / (28 * big), 0, 1) * Math.min(1.3, big));                                         // close: the ears shut for a moment
+    tone({ t: delay, dur: 0.8, f: 55, f2: 22, gain: 1.2 * g, pan: sp.pan });
+    noiseBurst({ t: delay, dur: 0.09, f: 2500, type: 'highpass', gain: 0.9 * g, pan: sp.pan, att: 0.001, wet: 0.2 });             // the crack
+    tone({ t: delay, dur: 1.6 + big * 0.4, f: 42, f2: 16, gain: 1.3 * g, pan: sp.pan, att: 0.004, wet: 0.2 });                   // pressure
+    noiseBurst({ t: delay + 0.05, dur: 3.2 + big, f: 140, type: 'lowpass', gain: 0.7 * g, att: 0.08, brown: true, wet: 0.95 }); // rolling echo
     if (sp.d < 45) for (let i = 0; i < 10; i++) noiseBurst({ t: delay + 0.5 + rand(0, 1.4), dur: 0.05, f: rand(1500, 3500), type: 'bandpass', q: 2, gain: 0.12 * g, pan: rand(-0.7, 0.7), wet: 0.1 }); // debris rain
     if (sp.d < 30) noiseBurst({ t: delay + 0.2, dur: 1.4, f: 5000, type: 'highpass', gain: 0.08 * g, pan: rand(-0.5, 0.5), att: 0.3, wet: 0.1 });
   },
   scream(pos) { if (!AU.ctx) return; const sp = spatial(pos, 30); if (sp.g < 0.05) return; tone({ dur: 1.1, f: rand(420, 560), f2: rand(260, 330), type: 'sawtooth', gain: 0.05 * sp.g, att: 0.05, pan: sp.pan, wet: 0.4 }); noiseBurst({ dur: 1.0, f: 1400, type: 'bandpass', q: 3, gain: 0.08 * sp.g, att: 0.05, pan: sp.pan, wet: 0.4 }); },
   shout(pos) { if (!AU.ctx) return; const sp = spatial(pos, 35); if (sp.g < 0.05) return; const f = rand(150, 220); tone({ dur: 0.35, f, f2: f * 0.8, type: 'sawtooth', gain: 0.035 * sp.g, att: 0.02, pan: sp.pan, wet: 0.35 }); noiseBurst({ dur: 0.3, f: rand(700, 1100), type: 'bandpass', q: 4, gain: 0.06 * sp.g, att: 0.02, pan: sp.pan, wet: 0.35 }); },
   boomFar(pos) { if (!AU.ctx) return; const sp = spatial(pos, 200); noiseBurst({ t: sp.d / 340, dur: 2.6, f: 220, gain: 0.8 * Math.max(0.12, sp.g), brown: true, pan: sp.pan, att: 0.04, wet: 0.9 }); },
-  whiz(pan) { noiseBurst({ dur: 0.14, f: 3400, f2: 900, type: 'bandpass', q: 2.5, gain: 0.5, pan, wet: 0 }); tone({ dur: 0.12, f: 2200, f2: 700, type: 'sine', gain: 0.06, pan, wet: 0 }); },
-  crack(pan) { noiseBurst({ dur: 0.022, f: 4200, type: 'highpass', gain: 0.4, pan, att: 0.0005, wet: 0.05 }); noiseBurst({ t: 0.004, dur: 0.05, f: 1800, type: 'bandpass', q: 1, gain: 0.3, pan, wet: 0.1 }); }, // a round going past close: a whip-crack, not a tick
+  whiz(pan) { noiseBurst({ dur: 0.12, f: 3000, f2: 1200, type: 'bandpass', q: 3, gain: 0.35, pan, wet: 0 }); },
+  crack(pan) { noiseBurst({ dur: 0.04, f: 6000, type: 'highpass', gain: 0.4, pan, wet: 0 }); },
   // hand-held illumination rocket: the thump of the launch, the hiss of the motor climbing; then the pop of the candle and parachute up high
   flareLaunch(pos) { const sp = spatial(pos, 25); if (sp.g < 0.03) return; noiseBurst({ dur: 0.09, f: 700, type: 'bandpass', q: 1, gain: 0.7 * sp.g, pan: sp.pan, wet: 0.2 }); noiseBurst({ t: 0.05, dur: 1.8, f: 3200, f2: 1100, type: 'bandpass', q: 0.8, gain: 0.22 * sp.g, pan: sp.pan, wet: 0.3 }); },
   flarePop(pos) { const sp = spatial(pos, 70); if (sp.g < 0.03) return; noiseBurst({ dur: 0.14, f: 420, type: 'lowpass', gain: 0.55 * sp.g, pan: sp.pan, wet: 0.5 }); },
@@ -168,9 +116,9 @@ const SFX = {
   cheer(pos, dur = 4) { const sp = spatial(pos, 30); if (sp.g < 0.03) return; for (let i = 0; i < 26; i++) { const t = rand(0, dur * 0.7), f = rand(500, 1400); noiseBurst({ t, dur: rand(0.5, 1.4), f, f2: f * rand(0.85, 1.2), type: 'bandpass', q: rand(3, 7), gain: 0.22 * sp.g, att: 0.08, pan: sp.pan + rand(-0.3, 0.3), wet: 0.6 }); } },
   impact(pos) { const sp = spatial(pos, 8); if (sp.g < 0.05) return; noiseBurst({ dur: 0.06, f: 2400, type: 'bandpass', q: 1.5, gain: 0.35 * sp.g, pan: sp.pan, wet: 0.1 }); },
   metal(pos) { const sp = spatial(pos, 10); tone({ dur: 0.18, f: rand(1400, 2400), type: 'triangle', gain: 0.2 * sp.g, pan: sp.pan }); },
-  hit() { tone({ dur: 0.05, f: 950, f2: 520, type: 'sine', gain: 0.2, wet: 0 }); noiseBurst({ dur: 0.035, f: 2600, type: 'bandpass', q: 1.4, gain: 0.22, att: 0.0008, wet: 0 }); }, // a dull thock, not a beep
-  head() { tone({ dur: 0.05, f: 950, f2: 520, type: 'sine', gain: 0.24, wet: 0 }); tone({ t: 0.012, dur: 0.22, f: 3100, f2: 2900, type: 'triangle', gain: 0.07, wet: 0.1 }); noiseBurst({ dur: 0.04, f: 3200, type: 'bandpass', q: 1.5, gain: 0.25, att: 0.0008, wet: 0 }); },
-  hurt() { noiseBurst({ dur: 0.22, f: 500, gain: 0.6, wet: 0 }); tone({ dur: 0.3, fdur: 0.12, f: 85, f2: 38, gain: 0.8, wet: 0 }); auShock(0.18); },
+  hit() { tone({ dur: 0.06, f: 1800, type: 'square', gain: 0.07, wet: 0 }); noiseBurst({ dur: 0.04, f: 4000, type: 'highpass', gain: 0.12, wet: 0 }); },
+  head() { tone({ dur: 0.09, f: 2600, type: 'square', gain: 0.08, wet: 0 }); tone({ t: 0.03, dur: 0.12, f: 900, type: 'sine', gain: 0.15, wet: 0 }); },
+  hurt() { noiseBurst({ dur: 0.2, f: 400, gain: 0.5, wet: 0 }); tone({ dur: 0.25, f: 70, f2: 40, gain: 0.5, wet: 0 }); },
   click() { tone({ dur: 0.03, f: 2400, type: 'square', gain: 0.08, wet: 0 }); },
   reload(w) {
     const seq = w === 'pistol' ? [[0.2, 1600], [0.9, 1200], [1.2, 2200]] : w === 'rpg' || w === 'atgm' ? [[0.5, 800], [1.6, 600], [2.4, 1500]] : [[0.25, 1700], [0.8, 1100], [1.4, 1500], [1.8, 2300]];
@@ -188,7 +136,7 @@ const SFX = {
   crackle(pos) { const sp = spatial(pos, 80); for (let i = 0; i < 12; i++) noiseBurst({ t: sp.d / 340 + rand(0, 0.8), dur: 0.03, f: 3500, type: 'highpass', gain: 0.25 * Math.max(0.15, sp.g), pan: sp.pan + rand(-0.2, 0.2), wet: 0.4 }); },
   incoming(pos, dur = 1.7) { if (!AU.ctx) return; const sp = spatial(pos, 45); const g = Math.max(0.25, sp.g); swell({ dur, f: 1500, f2: 420, type: 'sine', g0: 0.004, g1: 0.22 * g, pan: sp.pan, wet: 0.25 }); swell({ dur, f: 2800, f2: 900, noise: true, q: 3, g0: 0.002, g1: 0.5 * g, pan: sp.pan, wet: 0.3 }); swell({ t: dur * 0.55, dur: dur * 0.45, f: 300, f2: 120, noise: true, q: 1, g0: 0.01, g1: 0.6 * g, pan: sp.pan, wet: 0.2 }); },
   ring(dur = 6) { tone({ dur, f: 3800, type: 'sine', gain: 0.06, att: 0.05, wet: 0 }); },
-  melee() { noiseBurst({ dur: 0.12, f: 900, gain: 0.6, wet: 0 }); tone({ dur: 0.14, fdur: 0.06, f: 130, f2: 50, gain: 0.7, wet: 0 }); },
+  melee() { noiseBurst({ dur: 0.15, f: 700, gain: 0.5, wet: 0 }); },
 };
 /* loops (engine, rotor, wind) */
 function makeLoop(kind) {
@@ -196,11 +144,7 @@ function makeLoop(kind) {
   const c = AU.ctx; const out = c.createGain(); out.gain.value = 0; const pan = c.createStereoPanner ? c.createStereoPanner() : null;
   let nodes = [];
   if (kind === 'wind') { const s = c.createBufferSource(); s.buffer = AU.brown; s.loop = true; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 500; f.Q.value = 0.5; const l = c.createOscillator(); l.frequency.value = 0.13; const lg = c.createGain(); lg.gain.value = 250; l.connect(lg); lg.connect(f.frequency); s.connect(f); f.connect(out); s.start(); l.start(); nodes = [s, l]; }
-  else if (kind === 'engine') { // diesel: a sawtooth firing note, a sub an octave under it, a rough rumble, and a little track/gearbox clatter on top
-    const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 38; const sub = c.createOscillator(); sub.type = 'sine'; sub.frequency.value = 19; const s = c.createBufferSource(); s.buffer = AU.brown; s.loop = true;
-    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 320; const g2 = c.createGain(); g2.gain.value = 0.5; const sg = c.createGain(); sg.gain.value = 0.55; o.connect(g2); g2.connect(f); s.connect(f); f.connect(out); sub.connect(sg); sg.connect(out);
-    const n = c.createBufferSource(); n.buffer = AU.noise; n.loop = true; const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 1400; nf.Q.value = 1.2; const am = c.createGain(); am.gain.value = 0.04; const l = c.createOscillator(); l.frequency.value = 11; const lg = c.createGain(); lg.gain.value = 0.035; l.connect(lg); lg.connect(am.gain); n.connect(nf); nf.connect(am); am.connect(out);
-    o.start(); sub.start(); s.start(); n.start(); l.start(); nodes = [o, sub, s, n, l]; out._o = o; out._sub = sub; }
+  else if (kind === 'engine') { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 38; const s = c.createBufferSource(); s.buffer = AU.brown; s.loop = true; const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260; const g2 = c.createGain(); g2.gain.value = 0.4; o.connect(g2); g2.connect(f); s.connect(f); f.connect(out); o.start(); s.start(); nodes = [o, s]; out._o = o; }
   else if (kind === 'tilt') { // tiltrotor: slow heavy proprotor beat, a deep hum under it, turbine whine on top
     const s = c.createBufferSource(); s.buffer = AU.brown; s.loop = true; const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260; const am = c.createGain(); am.gain.value = 0.55; const l = c.createOscillator(); l.type = 'sine'; l.frequency.value = 8.5; const lg = c.createGain(); lg.gain.value = 0.45; l.connect(lg); lg.connect(am.gain); s.connect(f); f.connect(am); am.connect(out);
     const h = c.createOscillator(); h.type = 'sawtooth'; h.frequency.value = 47; const hf = c.createBiquadFilter(); hf.type = 'lowpass'; hf.frequency.value = 140; const hg = c.createGain(); hg.gain.value = 0.35; h.connect(hf); hf.connect(hg); hg.connect(out);
@@ -213,18 +157,17 @@ function makeLoop(kind) {
   if (pan) { out.connect(pan); pan.connect(AU.sfx); } else out.connect(AU.sfx);
   const L = {
     vol: 0,
-    set(v, p = 0, pitch) { const t = c.currentTime; out.gain.setTargetAtTime(v, t, 0.1); if (pan) pan.pan.setTargetAtTime(p, t, 0.1); if (pitch && out._o) out._o.frequency.setTargetAtTime(pitch, t, 0.2); if (pitch && out._sub) out._sub.frequency.setTargetAtTime(pitch / 2, t, 0.2); },
+    set(v, p = 0, pitch) { const t = c.currentTime; out.gain.setTargetAtTime(v, t, 0.1); if (pan) pan.pan.setTargetAtTime(p, t, 0.1); if (pitch && out._o) out._o.frequency.setTargetAtTime(pitch, t, 0.2); },
     at(pos, ref, base = 1, pitch) { const sp = spatial(pos, ref); this.set(sp.g * base, sp.pan, pitch); },
     stop() { if (L.dead) return; L.dead = true; const i = AU.loops.indexOf(L); if (i >= 0) AU.loops.splice(i, 1); try { out.gain.setTargetAtTime(0, c.currentTime, 0.1); setTimeout(() => { nodes.forEach((n) => { try { n.stop(); } catch (e) {} }); out.disconnect(); }, 600); } catch (e) {} },
   };
   if (kind !== 'wind') (AU.loops = AU.loops || []).push(L); // every engine, rotor, sea… is known, so leaving a mission can silence them all
   return L;
 }
-/* leaving a mission (to the menu, or restarting): every engine, rotor and sea loop and every jet stops, the ears and the score come back */
+/* leaving a mission (to the menu, or restarting): every engine, rotor and sea loop and every jet stops */
 function stopAllSounds() {
   if (!AU.ctx) return; for (const L of [...(AU.loops || [])]) L.stop(); AU.loops = [];
   for (const v of AU.jets || []) v.stop(); AU.jets = [];
-  const t = AU.ctx.currentTime; if (AU.muffle) { AU.muffle.frequency.cancelScheduledValues(t); AU.muffle.frequency.setTargetAtTime(20000, t, 0.05); } if (AU.duck) { AU.duck.gain.cancelScheduledValues(t); AU.duck.gain.setTargetAtTime(1, t, 0.05); }
 }
 function startAmbience() { AU.wind = makeLoop('wind'); }
 const MUSIC = { nodes: [], playing: null };

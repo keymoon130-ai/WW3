@@ -15,13 +15,13 @@ const WD = {
   desig: { name: 'LD-1 표적지시기', noFire: false, special: 'naval', adsFov: 16, vm: 'binoc', overlay: 'desig', mag: 1, res: 0, noAmmo: true },
   sniper: { name: 'K-S01 저격총', mag: 5, res: 30, rpm: 46, auto: false, dmg: 160, head: 3, sh: 0.06, sa: 0.0003, rec: 0.045, recH: 0.006, adsFov: 11, reload: 3.2, snd: 'sniper', vm: 'sniper', overlay: 'scope', bolt: 1.05 },
   sam: { name: 'K-SAM 휴대용 대공미사일', mag: 1, res: 1, rpm: 30, auto: false, proj: 'sam', adsFov: 34, reload: 4, snd: 'rpg', vm: 'sam', heavy: true, overlay: 'sam' },
-  m134: { name: 'M134 미니건', mag: 9999, res: 9999, rpm: 3000, auto: true, dmg: 46, head: 2, sh: 0.016, sa: 0.008, rec: 0.0008, recH: 0.0012, adsFov: 50, snd: 'm134', vm: 'none', mounted: true, infinite: true, hmg: true, extMuzzle: true },
-  km19: { name: 'K-M19 헬기 기관총', mag: 999, res: 9999, rpm: 1000, auto: true, dmg: 50, head: 2, sh: 0.012, sa: 0.006, rec: 0.0012, recH: 0.0018, adsFov: 50, snd: 'hmg', vm: 'none', mounted: true, infinite: true, hmg: true, extMuzzle: true },
+  m134: { name: 'M134 미니건', mag: 9999, res: 9999, rpm: 3000, auto: true, dmg: 46, head: 2, sh: 0.016, sa: 0.008, rec: 0.0008, recH: 0.0012, adsFov: 50, snd: 'mg', vm: 'none', mounted: true, infinite: true, hmg: true, extMuzzle: true },
+  km19: { name: 'K-M19 헬기 기관총', mag: 999, res: 9999, rpm: 1000, auto: true, dmg: 50, head: 2, sh: 0.012, sa: 0.006, rec: 0.0012, recH: 0.0018, adsFov: 50, snd: 'mg', vm: 'none', mounted: true, infinite: true, hmg: true, extMuzzle: true },
   heligl: { name: 'K4 고속유탄발사기', mag: 99, res: 9999, rpm: 330, auto: true, proj: 'gl', adsFov: 45, snd: 'gl', vm: 'pintle', mounted: true, infinite: true },
-  doorgun: { name: 'M60D 도어건', mag: 300, res: 9999, rpm: 750, auto: true, dmg: 60, head: 2, sh: 0.018, sa: 0.012, rec: 0.003, recH: 0.004, adsFov: 45, reload: 3, snd: 'hmg', vm: 'pintle', mounted: true },
+  doorgun: { name: 'M60D 도어건', mag: 300, res: 9999, rpm: 750, auto: true, dmg: 60, head: 2, sh: 0.018, sa: 0.012, rec: 0.003, recH: 0.004, adsFov: 45, reload: 3, snd: 'mg', vm: 'pintle', mounted: true },
   hrocket: { name: '70mm 로켓 포드', mag: 4, res: 60, rpm: 150, auto: false, proj: 'rocket', adsFov: 40, reload: 2.5, snd: 'rpg', vm: 'none', mounted: true },
-  k21mg: { name: 'K6 중기관총 (K808)', mag: 200, res: 9999, rpm: 600, auto: true, dmg: 55, head: 2, sh: 0.016, sa: 0.01, rec: 0.0035, recH: 0.004, adsFov: 50, reload: 3, snd: 'hmg', vm: 'pintle', mounted: true },
-  acvmg: { name: 'M2 중기관총 (ACV 원격무장)', mag: 200, res: 9999, rpm: 600, auto: true, dmg: 55, head: 2, sh: 0.016, sa: 0.01, rec: 0.0035, recH: 0.004, adsFov: 50, reload: 3, snd: 'hmg', vm: 'pintle', mounted: true },
+  k21mg: { name: 'K6 중기관총 (K808)', mag: 200, res: 9999, rpm: 600, auto: true, dmg: 55, head: 2, sh: 0.016, sa: 0.01, rec: 0.0035, recH: 0.004, adsFov: 50, reload: 3, snd: 'mg', vm: 'pintle', mounted: true },
+  acvmg: { name: 'M2 중기관총 (ACV 원격무장)', mag: 200, res: 9999, rpm: 600, auto: true, dmg: 55, head: 2, sh: 0.016, sa: 0.01, rec: 0.0035, recH: 0.004, adsFov: 50, reload: 3, snd: 'mg', vm: 'pintle', mounted: true },
   aa: { name: '20mm 대공포', mag: 400, res: 9999, rpm: 900, auto: true, proj: 'flak', adsFov: 55, vm: 'aa', mounted: true, rec: 0.003, recH: 0.004, sh: 0.012, sa: 0.008 },
 };
 
